@@ -30,7 +30,8 @@
 - Pydantic 요청·응답 모델과 P0 TaskType/Slash 별칭이 정의돼 있다.
 - 규칙·Kiwi 분석 파이프라인과 계약 fixture·자동 테스트가 있다.
 - `slash-docs/api/*.md`와 노션 문서는 설계 예시이며 확정 계약이 아니다.
-- API Java enum, Agent TypeScript enum, Web 명령 트리의 작업 목록이 서로 일치하지 않는다.
+- API Java enum과 Agent TypeScript enum의 P0 네 가지는 일치한다. P1과 Web 명령 트리는 별도 범위다.
+- Backend 연동 경계는 `docs/BACKEND_CONTRACT.md`를 기준으로 하며, 검증 전용 `COMMAND`를 추가하지 않는다.
 
 ## 확정된 MVP 계약
 
@@ -40,6 +41,7 @@
 | JSON enum | `decision`, `taskType`, `analyzer`는 wire에서 string이며 Pydantic `str, Enum`으로 검증 |
 | DB 경계 | 저장 표현은 Backend 소유; 연동 기준은 `varchar + CHECK`, 값 추가는 Flyway migration 대상 |
 | 사용자 Rate Limit | `slash-api` 소유; NLU는 사용자/IP별 횟수 제한을 구현하지 않음 |
+| 로컬 연동 | NLU는 8001로 실행하고 Backend에 `NLU_BASE_URL=http://localhost:8001` 주입 |
 | Slash 입력 | `command={path, operands}` 지원 |
 | 자연어 입력 | `text` 지원; `text`와 `command` 중 정확히 하나 |
 | NLU 응답 | `decision`, `taskType`, `parameters`, `missingRequiredParameters`, `question`, `confidence`, `analyzer` |
@@ -51,6 +53,7 @@
 
 TaskType 추가, 필드명 변경, 일반 대화 fallback은 별도 결정 없이 구현하지 않는다.
 NLU에서 DB enum이나 Flyway migration을 생성하지 않는다.
+다른 저장소의 merge 금지·검증 전용 TaskType은 계약 근거로 사용하지 않는다.
 
 ## 권장 내부 구조
 

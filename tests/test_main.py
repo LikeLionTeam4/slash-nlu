@@ -137,3 +137,47 @@ def test_openapi_exposes_wire_values_as_string_enums():
         "enum": ["SLASH", "RULE_KIWI"],
         "title": "AnalyzerType",
     }
+
+
+@pytest.mark.parametrize(
+    "path",
+    [["command"], ["네이버"], ["web_search"], ["chat"]],
+)
+def test_non_mvp_slash_commands_are_unsupported(client: TestClient, path):
+    body = post(
+        client,
+        {"requestId": "req-non-mvp", "command": {"path": path, "operands": ["hello"]}},
+    ).json()
+
+    assert body["decision"] == "UNSUPPORTED"
+    assert body["taskType"] is None
+    assert body["parameters"] == {}
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["/command hello", "네이버에서 뉴스 검색해줘", "제네릭 어떻게 써?"],
+)
+def test_non_mvp_natural_inputs_never_create_future_task_types(client: TestClient, text):
+    body = post(client, {"requestId": "req-non-mvp-text", "text": text}).json()
+
+    assert body["decision"] == "UNSUPPORTED"
+    assert body["taskType"] is None
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"requestId": "req-file-slash", "command": {"path": ["file"], "operands": ["회의록"]}},
+        {"requestId": "req-file-natural", "text": "회의록 파일 찾아줘"},
+    ],
+)
+def test_file_search_leaves_structural_parameters_to_backend(client: TestClient, payload):
+    body = post(client, payload).json()
+
+    assert body["decision"] == "TASK"
+    assert body["taskType"] == "FILE_SEARCH"
+    assert body["parameters"]["query"] == "회의록"
+    assert "searchFolderId" not in body["parameters"]
+    assert "searchFolderId" not in body["missingRequiredParameters"]
+    assert "processingRoute" not in body

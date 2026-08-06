@@ -22,6 +22,7 @@ uvicorn main:app --host 0.0.0.0 --port 8001
 
 상태 확인은 `GET /health`, 분석은 `POST /internal/v1/nlu/analyze`를 사용합니다.
 API 상세 스키마는 실행 후 `/docs` 또는 `/openapi.json`에서 확인할 수 있습니다.
+Backend 연동 경계는 [`docs/BACKEND_CONTRACT.md`](docs/BACKEND_CONTRACT.md)에 정리돼 있습니다.
 
 ## MVP 계약
 
