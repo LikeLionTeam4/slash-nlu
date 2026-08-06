@@ -44,3 +44,21 @@ NLU의 `parameters` 또는 `missingRequiredParameters`에 포함하지 않는다
 
 P0는 `FILE_SEARCH`, `SYSTEM_STATUS`, `WEATHER_LOOKUP`, `TEXT_SUMMARY` 네 가지다.
 검증 전용 PR의 `COMMAND`와 향후 후보인 `WEB_SEARCH`, `GENERAL_CHAT`은 반환하지 않는다.
+
+## 기존 초안과의 관계
+
+`slash-docs/api/nlu.md`의 2026-08-03 문서는 팀 합의 전 초안이다. 현재 계약은
+Backend `TaskType.p0Values()`와 NLU OpenAPI를 기준으로 하며, 초안 필드는 다음처럼
+구체화했다.
+
+| 기존 초안 | 현재 계약 | 이유 |
+|---|---|---|
+| `intent` | `decision` + `taskType` | 실행 후보와 `CLARIFY`·`UNSUPPORTED` 제어 결과를 분리 |
+| `args` | `parameters` | Task 파라미터 명칭과 통일 |
+| `matchedBy` | `analyzer` | 분석기 종류를 string enum으로 제한 |
+| 없음 | `requestId` | 요청·응답 추적 ID 왕복 보존 |
+| `args.question` | `missingRequiredParameters` + `question` | Backend가 누락값을 구조적으로 처리 가능 |
+
+Backend P0는 `WEATHER_LOOKUP`, `FILE_SEARCH`, `SYSTEM_STATUS`, `TEXT_SUMMARY`이며
+NLU도 이 네 값만 반환한다. Backend의 P1 `CODE_ANALYSIS`, `AI_AGENT_USAGE`는 이번
+NLU 범위가 아니고, 공통 초안의 `WEATHER` 표기는 `WEATHER_LOOKUP`으로 정규화한다.
