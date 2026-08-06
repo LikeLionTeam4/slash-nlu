@@ -54,6 +54,20 @@ python -m compileall .
 pytest
 ```
 
+### 팀 통합 스모크 테스트
+
+`slash-nlu`와 sibling `slash-llm` 저장소를 나란히 둔 환경에서는 LLM 저장소의
+데모 스크립트로 NLU → LLM 요약 계약을 확인할 수 있습니다.
+
+```bash
+cd ../slash-llm
+.venv/bin/python scripts/team_demo.py
+```
+
+기본 실행은 fake Ollama를 사용합니다. 실제 로컬 모델까지 확인하려면 Ollama를
+준비한 뒤 `--real-ollama`를 추가합니다. 이 스모크 테스트는 NLU와 LLM 사이의
+직접 연결만 확인하며 Backend와 Agent를 포함한 전체 E2E 테스트가 아닙니다.
+
 ## 관련 저장소
 
 | 저장소 | 역할 |
