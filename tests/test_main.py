@@ -78,6 +78,95 @@ def test_short_summary_clarifies_before_llm_call(client, payload):
     assert "150자" in body["question"]
 
 
+@pytest.mark.parametrize(("character_count", "decision"), [(149, "CLARIFY"), (150, "TASK")])
+def test_summary_minimum_excludes_whitespace(client, character_count, decision):
+    spaced_text = "가 " * character_count
+    body = post(client, {"requestId": "req-spaced-summary", "text": f"요약: {spaced_text}"}).json()
+
+    assert body["decision"] == decision
+    assert body["taskType"] == "TEXT_SUMMARY"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"requestId": "req-natural-summary-window", "text": "요약: " + ("가" * 149) + (" " * (8000 - 149)) + "나"},
+        {"requestId": "req-slash-summary-window", "command": {"path": ["summary"], "operands": [("가" * 149) + (" " * (8000 - 149)) + "나"]}},
+    ],
+)
+def test_summary_minimum_only_counts_first_8000_input_characters(client, payload):
+    body = post(client, payload).json()
+
+    assert body["decision"] == "CLARIFY"
+    assert body["taskType"] == "TEXT_SUMMARY"
+    assert body["missingRequiredParameters"] == ["text"]
+
+
+def test_file_word_inside_another_word_is_not_file_search(client):
+    body = post(client, {"requestId": "req-pilot", "text": "파일럿 검색해줘"}).json()
+
+    assert body["decision"] == "UNSUPPORTED"
+    assert body["taskType"] is None
+
+
+def test_file_slash_preserves_query_starting_with_file_syllables(client):
+    body = post(
+        client,
+        {"requestId": "req-pilot-file", "command": {"path": ["file"], "operands": ["파일럿.txt"]}},
+    ).json()
+
+    assert body["decision"] == "TASK"
+    assert body["parameters"]["query"] == "파일럿.txt"
+
+
+def test_file_slash_preserves_query_ending_with_english_action_syllables(client):
+    body = post(
+        client,
+        {"requestId": "req-research-file", "command": {"path": ["file"], "operands": ["research"]}},
+    ).json()
+
+    assert body["decision"] == "TASK"
+    assert body["parameters"]["query"] == "research"
+
+
+@pytest.mark.parametrize("query", ["파일", "file"])
+def test_file_slash_generic_subject_clarifies(client, query):
+    body = post(
+        client,
+        {"requestId": "req-generic-file", "command": {"path": ["file"], "operands": [query]}},
+    ).json()
+
+    assert body["decision"] == "CLARIFY"
+    assert body["missingRequiredParameters"] == ["query"]
+
+
+@pytest.mark.parametrize(("text", "query"), [("report.pdf 찾아줘", "report.pdf"), ("report.ppt 찾아줘", "report.ppt")])
+def test_natural_file_search_recognizes_filename_extensions(client, text, query):
+    body = post(client, {"requestId": "req-file-extension", "text": text}).json()
+
+    assert body["decision"] == "TASK"
+    assert body["taskType"] == "FILE_SEARCH"
+    assert body["parameters"]["query"] == query
+
+
+@pytest.mark.parametrize("text", ["file search", "file find", "file research"])
+def test_english_file_request_without_query_clarifies(client, text):
+    body = post(client, {"requestId": "req-english-file", "text": text}).json()
+
+    assert body["decision"] == "CLARIFY"
+    assert body["taskType"] == "FILE_SEARCH"
+    assert body["missingRequiredParameters"] == ["query"]
+
+
+@pytest.mark.parametrize(("text", "query"), [("요약본 파일 찾아줘", "요약본"), ("날씨 보고서 파일 찾아줘", "날씨 보고서")])
+def test_explicit_file_search_takes_priority_over_other_keywords(client, text, query):
+    body = post(client, {"requestId": "req-file-priority", "text": text}).json()
+
+    assert body["decision"] == "TASK"
+    assert body["taskType"] == "FILE_SEARCH"
+    assert body["parameters"]["query"] == query
+
+
 @pytest.mark.parametrize("payload", [{"requestId": "req-none"}, {"requestId": "req-both", "text": "서울 날씨", "command": {"path": ["날씨"], "operands": ["서울"]}}, {"requestId": "req-empty", "text": "   "}])
 def test_business_input_conflicts_are_400(client, payload):
     assert post(client, payload).status_code == 400

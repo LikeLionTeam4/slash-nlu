@@ -9,10 +9,15 @@ from models import AnalyzeResponse, AnalyzerType, CommandInput, Decision, TaskTy
 
 
 _SPACE = re.compile(r"\s+")
-_FILE_ACTIONS = re.compile(r"(?:파일(?:을|를)?\s*)?(?:찾아\s*줘|찾아줘|찾아|검색해\s*줘|검색해줘|검색)$")
+_FILE_ACTIONS = re.compile(
+    r"(?:파일(?:을|를)?\s*)?(?:찾아\s*줘|찾아줘|찾아|검색해\s*줘|검색해줘|검색|(?<!\w)(?:find|search))$",
+    flags=re.IGNORECASE,
+)
+_FILE_EXTENSION = re.compile(r"\.(?:pdf|ppt)(?!\w)", flags=re.IGNORECASE)
 _SUMMARY_ACTIONS = re.compile(r"(?:요약해\s*줘|요약해줘|요약해|요약)$")
 _WEATHER_END = re.compile(r"(?:의\s*)?날씨(?:가|는|를|도)?(?:\s*(?:어때|알려\s*줘|알려줘|확인해\s*줘|확인해줘))?[?!.\s]*$")
 _TEMPORAL_LOCATION_WORDS = {"오늘", "내일", "현재", "지금", "이번주", "이번 주"}
+_SUMMARY_MAX_INPUT_CHARS = 8000
 
 
 class NluAnalyzer:
@@ -43,31 +48,32 @@ class NluAnalyzer:
         surfaces = {token.form.lower() for token in self.kiwi.tokenize(normalized)}
         lowered = normalized.lower()
 
+        if self._has_file_subject(normalized, surfaces) and self._has_file_action(surfaces):
+            return self._task_or_clarify(request_id, TaskType.FILE_SEARCH, self._file_parameters(normalized, now), AnalyzerType.RULE_KIWI, 0.88)
         if self._has_any(lowered, surfaces, ("요약", "summary")):
-            summary_text = self._extract_summary_text(normalized)
+            summary_text = self._extract_summary_text(text.strip())
             return self._task_or_clarify(request_id, TaskType.TEXT_SUMMARY, {"text": summary_text} if summary_text else {}, AnalyzerType.RULE_KIWI, 0.92)
         if self._has_any(lowered, surfaces, ("날씨", "기온", "weather")):
             location = self._extract_location(normalized)
             return self._task_or_clarify(request_id, TaskType.WEATHER_LOOKUP, {"location": location} if location else {}, AnalyzerType.RULE_KIWI, 0.90)
-        if self._has_any(
-            lowered,
-            surfaces,
-            ("파일", "문서", "회의록", "견적서", "보고서", "자료", "ppt", "pdf", "file"),
-        ) and self._has_any(lowered, surfaces, ("찾", "검색", "find", "search")):
-            return self._task_or_clarify(request_id, TaskType.FILE_SEARCH, self._file_parameters(normalized, now), AnalyzerType.RULE_KIWI, 0.88)
         if self._is_system_status(lowered, surfaces):
             return self._task_or_clarify(request_id, TaskType.SYSTEM_STATUS, {}, AnalyzerType.RULE_KIWI, 0.90)
-        if self._has_any(
-            lowered,
-            surfaces,
-            ("파일", "문서", "회의록", "견적서", "보고서", "자료", "ppt", "pdf", "file"),
-        ):
+        if self._has_file_subject(normalized, surfaces):
             return self._task_or_clarify(request_id, TaskType.FILE_SEARCH, {}, AnalyzerType.RULE_KIWI, 0.55)
         return self._unsupported(request_id, AnalyzerType.RULE_KIWI, 0.0)
 
     @staticmethod
     def _has_any(text: str, surfaces: Iterable[str], candidates: Iterable[str]) -> bool:
         return any(candidate in text or candidate in surfaces for candidate in candidates)
+
+    @staticmethod
+    def _has_file_subject(text: str, surfaces: Iterable[str]) -> bool:
+        file_words = ("파일", "문서", "회의록", "견적서", "보고서", "자료", "ppt", "pdf", "file")
+        return any(word in surfaces for word in file_words) or _FILE_EXTENSION.search(text) is not None
+
+    @staticmethod
+    def _has_file_action(surfaces: Iterable[str]) -> bool:
+        return any(word in surfaces for word in ("찾", "검색", "find", "search"))
 
     @staticmethod
     def _is_system_status(text: str, surfaces: Iterable[str]) -> bool:
@@ -101,7 +107,7 @@ class NluAnalyzer:
             parameters.update(after=f"{year:04d}-01-01", before=f"{year:04d}-12-31")
             query = query.replace("작년", " ")
         query = _FILE_ACTIONS.sub("", query).strip()
-        query = re.sub(r"^(?:파일|file)\s*", "", query, flags=re.IGNORECASE).strip()
+        query = re.sub(r"^(?:파일(?:을|를)?|file)(?:\s+|$)", "", query, flags=re.IGNORECASE).strip()
         query = _SPACE.sub(" ", query)
         if query:
             parameters["query"] = query
@@ -113,7 +119,8 @@ class NluAnalyzer:
         missing = [name for name in definition.required_parameters if name not in parameters or parameters[name] in (None, "", [])]
         if task_type == TaskType.TEXT_SUMMARY:
             summary_text = str(parameters.get("text", "")).strip()
-            if len(summary_text) < SUMMARY_MIN_CHARS and "text" not in missing:
+            summary_window = summary_text[:_SUMMARY_MAX_INPUT_CHARS]
+            if len(_SPACE.sub("", summary_window)) < SUMMARY_MIN_CHARS and "text" not in missing:
                 missing.append("text")
         return AnalyzeResponse(requestId=request_id, decision=Decision.CLARIFY if missing else Decision.TASK, taskType=task_type, parameters=parameters, missingRequiredParameters=missing, question=definition.question if missing else None, confidence=confidence, analyzer=analyzer)
 
