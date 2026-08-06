@@ -46,7 +46,7 @@
 | 자연어 입력 | `text` 지원; `text`와 `command` 중 정확히 하나 |
 | NLU 응답 | `decision`, `taskType`, `parameters`, `missingRequiredParameters`, `question`, `confidence`, `analyzer` |
 | 누락값 | `decision=CLARIFY`, taskType 유지, 누락 필드 목록 반환 |
-| FILE_SEARCH | NLU는 `query`만 추출; `searchFolderId`는 생성·누락 판정하지 않음 |
+| FILE_SEARCH | NLU는 `query`와 자연어에 명시된 날짜 범위(`after`, `before`)를 추출; `searchFolderId`는 생성·누락 판정하지 않음 |
 | TEXT_SUMMARY | `text`가 공백 제거 후 150자 미만이면 `CLARIFY` |
 | 미지원 입력 | 명백한 미지원은 `UNSUPPORTED`, 서비스 후보지만 값이 부족하면 `CLARIFY` |
 | 라우팅 | `processingRoute`를 결정하거나 반환하지 않음 |
