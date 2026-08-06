@@ -11,7 +11,62 @@ Slash(/)는 자연어 질문과 `/` 슬래시 명령어를 한 입력창에서 �
 
 ## 시작하기
 
-> 실행 방법·환경변수·디렉터리 구조는 구현이 붙는 대로 이 섹션에 채웁니다.
+Python 3.9 이상이 필요합니다.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8001
+```
+
+상태 확인은 `GET /health`, 분석은 `POST /internal/v1/nlu/analyze`를 사용합니다.
+API 상세 스키마는 실행 후 `/docs` 또는 `/openapi.json`에서 확인할 수 있습니다.
+Backend 연동 경계는 [`docs/BACKEND_CONTRACT.md`](docs/BACKEND_CONTRACT.md)에 정리돼 있습니다.
+
+## MVP 계약
+
+- `text` 또는 `command={path, operands}` 중 정확히 하나를 전달합니다.
+- 지원 작업은 `FILE_SEARCH`, `SYSTEM_STATUS`, `WEATHER_LOOKUP`, `TEXT_SUMMARY`입니다.
+- `decision`, `taskType`, `analyzer`는 JSON에서 문자열로 직렬화되는 **string enum**입니다.
+- DB 저장 방식은 Backend 소유입니다. 현재 연동 기준은 `varchar + CHECK`이며 값 추가 시 Flyway migration으로 제약조건을 갱신합니다.
+- 사용자/IP별 요청 횟수 제한과 `429 RATE_LIMITED` 응답은 인증 정보를 가진 Backend가 담당합니다.
+- NLU는 실행 위치(`processingRoute`)를 결정하거나 반환하지 않습니다.
+- `FILE_SEARCH.searchFolderId`는 Backend가 보완하며 NLU의 누락 판정 대상이 아닙니다.
+- `TEXT_SUMMARY.text`는 LLM 입력 정책과 동일하게 공백 제거 후 150자 이상이어야 합니다.
+- 자연어 분석 순서는 명시 규칙 → Kiwi/키워드 → fallback입니다.
+
+## 구조
+
+```text
+main.py              FastAPI app과 endpoint
+models.py            요청·응답 모델
+intents.py           TaskType과 필수 파라미터
+analyzer.py          Slash 및 Kiwi 분석 파이프라인
+tests/fixtures/      계약 fixture
+tests/test_main.py   단위·계약 테스트
+```
+
+## 테스트
+
+```bash
+python -m compileall .
+pytest
+```
+
+### 팀 통합 스모크 테스트
+
+`slash-nlu`와 sibling `slash-llm` 저장소를 나란히 둔 환경에서는 LLM 저장소의
+데모 스크립트로 NLU → LLM 요약 계약을 확인할 수 있습니다.
+
+```bash
+cd ../slash-llm
+.venv/bin/python scripts/team_demo.py
+```
+
+기본 실행은 fake Ollama를 사용합니다. 실제 로컬 모델까지 확인하려면 Ollama를
+준비한 뒤 `--real-ollama`를 추가합니다. 이 스모크 테스트는 NLU와 LLM 사이의
+직접 연결만 확인하며 Backend와 Agent를 포함한 전체 E2E 테스트가 아닙니다.
 
 ## 관련 저장소
 

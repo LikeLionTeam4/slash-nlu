@@ -1,0 +1,7 @@
+[
+  {"name":"slash file","request":{"requestId":"req-1","command":{"path":["파일"],"operands":["견적서"]}},"expected":{"decision":"TASK","taskType":"FILE_SEARCH","parameters":{"query":"견적서"},"analyzer":"SLASH"}},
+  {"name":"slash weather missing","request":{"requestId":"req-2","command":{"path":["weather"],"operands":[]}},"expected":{"decision":"CLARIFY","taskType":"WEATHER_LOOKUP","missingRequiredParameters":["location"],"analyzer":"SLASH"}},
+  {"name":"natural weather","request":{"requestId":"req-3","text":"오늘 서울 날씨 어때"},"expected":{"decision":"TASK","taskType":"WEATHER_LOOKUP","parameters":{"location":"서울"},"analyzer":"RULE_KIWI"}},
+  {"name":"natural file with relative date","request":{"requestId":"req-4","text":"작년 견적서 파일 찾아줘","now":"2026-08-05T15:20:00+09:00"},"expected":{"decision":"TASK","taskType":"FILE_SEARCH","parameters":{"query":"견적서","after":"2025-01-01","before":"2025-12-31"},"analyzer":"RULE_KIWI"}},
+  {"name":"unsupported","request":{"requestId":"req-5","text":"메일을 보내줘"},"expected":{"decision":"UNSUPPORTED","taskType":null,"parameters":{},"analyzer":"RULE_KIWI"}}
+]
