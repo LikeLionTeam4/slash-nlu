@@ -62,3 +62,16 @@ Backend `TaskType.p0Values()`와 NLU OpenAPI를 기준으로 하며, 초안 필�
 Backend P0는 `WEATHER_LOOKUP`, `FILE_SEARCH`, `SYSTEM_STATUS`, `TEXT_SUMMARY`이며
 NLU도 이 네 값만 반환한다. Backend의 P1 `CODE_ANALYSIS`, `AI_AGENT_USAGE`는 이번
 NLU 범위가 아니고, 공통 초안의 `WEATHER` 표기는 `WEATHER_LOOKUP`으로 정규화한다.
+
+## TaskType 목록 계약 확인
+
+Backend는 인증이 필요한 `GET /api/v1/task-types`로 P0와 P1 전체 목록을 반환한다.
+NLU의 opt-in 계약 테스트는 `NLU_CONTRACT_BASE_URL`과 `NLU_CONTRACT_TOKEN`이 모두
+설정된 경우에만 이 endpoint를 호출한다. 기본 단위 테스트는 실행 중인 Backend에
+의존하지 않는다.
+
+NLU는 `priority=P0`인 네 TaskType과 각 항목의 `nluRequiredParameters`만 비교한다.
+`requiredParameters` 전체, `backendProvidedParameters`, `processingRoute`는 NLU 소유가
+아니다. 특히 `FILE_SEARCH.searchFolderId`는 Backend가 채우는 값이며 NLU의
+`parameters` 또는 `missingRequiredParameters`에 넣지 않는다. P1 목록은 NLU의 MVP
+지원 범위를 결정하지 않는다.
