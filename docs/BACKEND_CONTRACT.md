@@ -44,3 +44,34 @@ NLU의 `parameters` 또는 `missingRequiredParameters`에 포함하지 않는다
 
 P0는 `FILE_SEARCH`, `SYSTEM_STATUS`, `WEATHER_LOOKUP`, `TEXT_SUMMARY` 네 가지다.
 검증 전용 PR의 `COMMAND`와 향후 후보인 `WEB_SEARCH`, `GENERAL_CHAT`은 반환하지 않는다.
+
+## 기존 초안과의 관계
+
+`slash-docs/api/nlu.md`의 2026-08-03 문서는 팀 합의 전 초안이다. 현재 계약은
+Backend `TaskType.p0Values()`와 NLU OpenAPI를 기준으로 하며, 초안 필드는 다음처럼
+구체화했다.
+
+| 기존 초안 | 현재 계약 | 이유 |
+|---|---|---|
+| `intent` | `decision` + `taskType` | 실행 후보와 `CLARIFY`·`UNSUPPORTED` 제어 결과를 분리 |
+| `args` | `parameters` | Task 파라미터 명칭과 통일 |
+| `matchedBy` | `analyzer` | 분석기 종류를 string enum으로 제한 |
+| 없음 | `requestId` | 요청·응답 추적 ID 왕복 보존 |
+| `args.question` | `missingRequiredParameters` + `question` | Backend가 누락값을 구조적으로 처리 가능 |
+
+Backend P0는 `WEATHER_LOOKUP`, `FILE_SEARCH`, `SYSTEM_STATUS`, `TEXT_SUMMARY`이며
+NLU도 이 네 값만 반환한다. Backend의 P1 `CODE_ANALYSIS`, `AI_AGENT_USAGE`는 이번
+NLU 범위가 아니고, 공통 초안의 `WEATHER` 표기는 `WEATHER_LOOKUP`으로 정규화한다.
+
+## TaskType 목록 계약 확인
+
+Backend는 인증이 필요한 `GET /api/v1/task-types`로 P0와 P1 전체 목록을 반환한다.
+NLU의 opt-in 계약 테스트는 `NLU_CONTRACT_BASE_URL`과 `NLU_CONTRACT_TOKEN`이 모두
+설정된 경우에만 이 endpoint를 호출한다. 기본 단위 테스트는 실행 중인 Backend에
+의존하지 않는다.
+
+NLU는 `priority=P0`인 네 TaskType과 각 항목의 `nluRequiredParameters`만 비교한다.
+`requiredParameters` 전체, `backendProvidedParameters`, `processingRoute`는 NLU 소유가
+아니다. 특히 `FILE_SEARCH.searchFolderId`는 Backend가 채우는 값이며 NLU의
+`parameters` 또는 `missingRequiredParameters`에 넣지 않는다. P1 목록은 NLU의 MVP
+지원 범위를 결정하지 않는다.
