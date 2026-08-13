@@ -59,13 +59,13 @@ jobs:
       id-token: write
     env:
       AWS_REGION: ap-northeast-2
-      ECR_REGISTRY: 727646470302.dkr.ecr.ap-northeast-2.amazonaws.com
+      ECR_REGISTRY: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com
       ECR_REPOSITORY: slash-nlu
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::727646470302:role/slash-nlu-cicd
+          role-to-assume: arn:aws:iam::061039804626:role/slash-nlu-cicd
           aws-region: ${{ env.AWS_REGION }}
       - uses: aws-actions/amazon-ecr-login@v2
       - name: Check immutable image tag
