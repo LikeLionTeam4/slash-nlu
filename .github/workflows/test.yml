@@ -38,7 +38,7 @@ jobs:
         run: |
           docker run --detach --name slash-nlu-test --publish 8001:8001 slash-nlu:test
           curl --fail --silent --show-error \
-            --retry 30 --retry-delay 1 --retry-connrefused \
+            --retry 30 --retry-delay 1 --retry-connrefused --retry-all-errors \
             http://127.0.0.1:8001/health \
             | python -c 'import json, sys; body = json.load(sys.stdin); assert body == {"status": "UP", "analyzerReady": True}, body'
           curl --fail --silent --show-error \
