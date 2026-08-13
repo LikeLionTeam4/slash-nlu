@@ -3,7 +3,7 @@ name: test
 on:
   pull_request:
   push:
-    branches: [dev, "codex/**"]
+    branches: [main, dev, "codex/**"]
 
 jobs:
   pytest:
@@ -17,3 +17,78 @@ jobs:
       - run: python -m pip install -r requirements.txt
       - run: python -m pytest
       - run: python -m compileall -q main.py models.py analyzer.py intents.py tests
+
+  container-build:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
+    needs: pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: slash-nlu:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Verify container health
+        run: |
+          docker run --detach --name slash-nlu-test --publish 8001:8001 slash-nlu:test
+          curl --fail --silent --show-error \
+            --retry 30 --retry-delay 1 --retry-connrefused --retry-all-errors \
+            http://127.0.0.1:8001/health \
+            | python -c 'import json, sys; body = json.load(sys.stdin); assert body == {"status": "UP", "analyzerReady": True}, body'
+          curl --fail --silent --show-error \
+            --header 'Content-Type: application/json' \
+            --data '{"requestId":"container-smoke","text":"오늘 서울 날씨 어때","now":"2026-08-13T10:00:00+09:00"}' \
+            http://127.0.0.1:8001/internal/v1/nlu/analyze \
+            | python -c 'import json, sys; body = json.load(sys.stdin); assert body["decision"] == "TASK", body; assert body["taskType"] == "WEATHER_LOOKUP", body; assert body["parameters"]["location"] == "서울", body'
+      - name: Stop test container
+        if: always()
+        run: docker rm --force slash-nlu-test || true
+
+  publish-image:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+    needs: [pytest, container-build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ap-northeast-2
+      ECR_REGISTRY: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com
+      ECR_REPOSITORY: slash-nlu
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::061039804626:role/slash-nlu-cicd
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Check immutable image tag
+        id: image
+        run: |
+          found=$(aws ecr batch-get-image \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageTag="sha-$GITHUB_SHA" \
+            --query 'length(images)' \
+            --output text)
+          if [ "$found" = "1" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: docker/setup-buildx-action@v3
+        if: steps.image.outputs.exists != 'true'
+      - uses: docker/build-push-action@v6
+        if: steps.image.outputs.exists != 'true'
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

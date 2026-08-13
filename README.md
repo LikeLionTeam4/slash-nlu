@@ -24,6 +24,21 @@ uvicorn main:app --host 0.0.0.0 --port 8001
 API 상세 스키마는 실행 후 `/docs` 또는 `/openapi.json`에서 확인할 수 있습니다.
 Backend 연동 경계는 [`docs/BACKEND_CONTRACT.md`](docs/BACKEND_CONTRACT.md)에 정리돼 있습니다.
 
+### 컨테이너 실행
+
+```bash
+docker build -t slash-nlu:local .
+docker run --rm -p 8001:8001 slash-nlu:local
+curl http://localhost:8001/health
+```
+
+컨테이너는 비루트 사용자로 실행되고 `8001` 포트만 사용합니다. `dev` 또는 `main`
+브랜치에 반영되면 GitHub Actions가 `sha-<commit>` 태그로 ECR에 이미지를 게시합니다.
+동일 커밋의 이미지가 이미 있으면 immutable 태그를 다시 게시하지 않고 성공 처리합니다.
+실제 dev 배포에는 `slash-infra`의 `values-dev.yaml` 이미지 태그 갱신이 별도로 필요합니다.
+현재 Helm 기준 Kubernetes Service는 `80`에서 컨테이너 `8001`로 전달하므로, 같은
+namespace의 Backend에는 `NLU_BASE_URL=http://slash-nlu`를 주입합니다.
+
 ## MVP 계약
 
 - `text` 또는 `command={path, operands}` 중 정확히 하나를 전달합니다.
