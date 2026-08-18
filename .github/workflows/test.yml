@@ -92,3 +92,37 @@ jobs:
           tags: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:sha-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # dev에 push된 이미지를 slash-infra의 helm/slash-nlu/values-dev.yaml에 바로 반영한다 —
+  # ArgoCD가 이 파일을 보고 있어서(automated selfHeal), 이 커밋이 곧 dev 환경 배포다
+  # (slash-infra 이슈 #24, docs/aws-architecture.md §9). INFRA_PUSH_TOKEN은 slash-infra
+  # 저장소 Contents:write만 있는 fine-grained PAT.
+  bump-dev-tag:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    needs: [pytest, container-build, publish-image]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: LikeLionTeam4/slash-infra
+          ref: dev
+          token: ${{ secrets.INFRA_PUSH_TOKEN }}
+      - name: Bump image.tag in values-dev.yaml
+        run: |
+          FILE="helm/slash-nlu/values-dev.yaml"
+          sed -i -E "s|^(\s{2}tag:).*|\1 \"sha-${GITHUB_SHA}\"|" "$FILE"
+          grep -n "tag:" "$FILE"
+      - name: Commit and push (retry on race with other services)
+        run: |
+          git config user.name "slash-infra-cd-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add helm/slash-nlu/values-dev.yaml
+          git commit -m "chore(slash-nlu): bump dev image tag to sha-${GITHUB_SHA:0:12}" || exit 0
+          for i in 1 2 3 4 5; do
+            git push origin dev && exit 0
+            git fetch origin dev
+            git rebase origin/dev
+            sleep $((RANDOM % 5 + 1))
+          done
+          echo "::error::dev 브랜치 push 재시도 5회 모두 실패"
+          exit 1
