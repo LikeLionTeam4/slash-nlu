@@ -110,18 +110,43 @@ jobs:
       - name: Bump image.tag in values-dev.yaml
         run: |
           FILE="helm/slash-nlu/values-dev.yaml"
-          sed -i -E "s|^(\s{2}tag:).*|\1 \"sha-${GITHUB_SHA}\"|" "$FILE"
+          TAG="sha-${GITHUB_SHA}"
+
+          # 줄 끝 주석은 남긴다. `.*` 로 줄 전체를 갈아치우면 그 줄에 적어 둔 설명이 사라진다.
+          sed -i -E "s|^(\s{2}tag:)[^#]*(\s#.*)?$|\1 \"${TAG}\"\2|" "$FILE"
+
+          # 치환이 안 됐는데 통과하면, 이미지는 올라갔는데 배포 태그는 그대로인 채로
+          # 초록불이 된다. 파일 구조가 바뀌었을 때 조용히 어긋나는 것을 여기서 막는다.
+          if ! grep -q "tag: \"${TAG}\"" "$FILE"; then
+            echo "::error::${FILE} 의 image.tag 를 바꾸지 못했다. 파일 구조를 확인할 것"
+            grep -n "tag:" "$FILE"
+            exit 1
+          fi
           grep -n "tag:" "$FILE"
       - name: Commit and push (retry on race with other services)
         run: |
           git config user.name "slash-infra-cd-bot"
           git config user.email "actions@users.noreply.github.com"
           git add helm/slash-nlu/values-dev.yaml
-          git commit -m "chore(slash-nlu): bump dev image tag to sha-${GITHUB_SHA:0:12}" || exit 0
+
+          # 커밋할 것이 없는 경우만 조용히 끝낸다. `|| exit 0`는 그 경우와 커밋이 다른
+          # 이유로 실패한 경우를 구분하지 않아, 실패까지 초록불로 덮는다.
+          if git diff --cached --quiet; then
+            echo "이미 같은 태그다. 커밋할 변경이 없다."
+            exit 0
+          fi
+          git commit -m "chore(slash-nlu): bump dev image tag to sha-${GITHUB_SHA:0:12}"
+
           for i in 1 2 3 4 5; do
             git push origin dev && exit 0
             git fetch origin dev
-            git rebase origin/dev
+            # rebase가 충돌하면 저장소가 rebase 중 상태로 남아 남은 재시도가 모두 헛돈다.
+            # 다른 서비스와 같은 줄이 겹친 것이므로 사람이 봐야 한다.
+            if ! git rebase origin/dev; then
+              git rebase --abort || true
+              echo "::error::values-dev.yaml이 다른 변경과 충돌했다. 직접 확인이 필요하다"
+              exit 1
+            fi
             sleep $((RANDOM % 5 + 1))
           done
           echo "::error::dev 브랜치 push 재시도 5회 모두 실패"
