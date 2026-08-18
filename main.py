@@ -3,9 +3,10 @@ from datetime import datetime, timezone
 from typing import AsyncIterator
 
 from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 
 from analyzer import NluAnalyzer
-from models import AnalyzeRequest, AnalyzeResponse
+from models import AnalyzeRequest, AnalyzeResponse, HealthResponse
 
 
 @asynccontextmanager
@@ -17,9 +18,28 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="Slash NLU", version="1.0.0", lifespan=lifespan)
 
 
-@app.get("/health")
-async def health(request: Request) -> dict:
-    return {"status": "UP", "analyzerReady": hasattr(request.app.state, "analyzer")}
+def analyzer_is_ready(request: Request) -> bool:
+    return getattr(request.app.state, "analyzer", None) is not None
+
+
+@app.get("/health", response_model=HealthResponse)
+async def health(request: Request) -> HealthResponse:
+    return HealthResponse(status="UP", analyzerReady=analyzer_is_ready(request))
+
+
+@app.get(
+    "/ready",
+    response_model=HealthResponse,
+    responses={503: {"model": HealthResponse, "description": "Analyzer 준비 안 됨"}},
+)
+async def ready(request: Request):
+    if not analyzer_is_ready(request):
+        body = HealthResponse(status="NOT_READY", analyzerReady=False)
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content=body.model_dump(),
+        )
+    return HealthResponse(status="UP", analyzerReady=True)
 
 
 @app.post("/internal/v1/nlu/analyze", response_model=AnalyzeResponse)

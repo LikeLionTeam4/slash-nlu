@@ -42,6 +42,9 @@ jobs:
             http://127.0.0.1:8001/health \
             | python -c 'import json, sys; body = json.load(sys.stdin); assert body == {"status": "UP", "analyzerReady": True}, body'
           curl --fail --silent --show-error \
+            http://127.0.0.1:8001/ready \
+            | python -c 'import json, sys; body = json.load(sys.stdin); assert body == {"status": "UP", "analyzerReady": True}, body'
+          curl --fail --silent --show-error \
             --header 'Content-Type: application/json' \
             --data '{"requestId":"container-smoke","text":"오늘 서울 날씨 어때","now":"2026-08-13T10:00:00+09:00"}' \
             http://127.0.0.1:8001/internal/v1/nlu/analyze \

@@ -184,6 +184,31 @@ def test_health(client):
     assert response.json() == {"status": "UP", "analyzerReady": True}
 
 
+def test_health_stays_up_when_analyzer_is_not_ready(client):
+    del client.app.state.analyzer
+
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "UP", "analyzerReady": False}
+
+
+def test_ready_returns_200_when_analyzer_is_ready(client):
+    response = client.get("/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "UP", "analyzerReady": True}
+
+
+def test_ready_returns_503_when_analyzer_is_not_ready(client):
+    del client.app.state.analyzer
+
+    response = client.get("/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {"status": "NOT_READY", "analyzerReady": False}
+
+
 def test_unexpected_analyzer_error_is_500(client, monkeypatch):
     def fail(*args, **kwargs):
         raise RuntimeError("internal detail must not leak")
@@ -197,10 +222,17 @@ def test_unexpected_analyzer_error_is_500(client, monkeypatch):
 def test_openapi_exposes_contract():
     schema = app.openapi()
     assert "/health" in schema["paths"]
+    assert "/ready" in schema["paths"]
     assert "/internal/v1/nlu/analyze" in schema["paths"]
     properties = schema["components"]["schemas"]["AnalyzeResponse"]["properties"]
     assert {"requestId", "decision", "taskType", "parameters", "missingRequiredParameters", "question", "confidence", "analyzer"} <= set(properties)
     assert "processingRoute" not in properties
+
+    ready_responses = schema["paths"]["/ready"]["get"]["responses"]
+    assert {"200", "503"} <= set(ready_responses)
+    for status_code in ("200", "503"):
+        response_schema = ready_responses[status_code]["content"]["application/json"]["schema"]
+        assert response_schema["$ref"].endswith("/HealthResponse")
 
 
 def test_openapi_exposes_wire_values_as_string_enums():
