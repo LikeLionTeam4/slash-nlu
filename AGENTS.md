@@ -22,7 +22,7 @@
 - Web UI와 명령 자동완성
 - 공통 DB·인프라 변경
 
-`slash-api`, `slash-agent`, `slash-web`, `slash-docs`, `slash-infra`는 읽기 전용 참고 대상이다. 사용자 요청 없이 수정하지 않는다.
+`slash-api`, `slash-runner`, `slash-web`, `slash-docs`, `slash-infra`는 읽기 전용 참고 대상이다. 사용자 요청 없이 수정하지 않는다.
 
 ## 현재 상태
 
