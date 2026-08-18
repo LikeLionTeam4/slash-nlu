@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -21,6 +21,11 @@ class TaskType(str, Enum):
 class AnalyzerType(str, Enum):
     SLASH = "SLASH"
     RULE_KIWI = "RULE_KIWI"
+
+
+class HealthResponse(BaseModel):
+    status: Literal["UP", "NOT_READY"]
+    analyzerReady: bool
 
 
 class CommandInput(BaseModel):
