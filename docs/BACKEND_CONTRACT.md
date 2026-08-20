@@ -59,6 +59,10 @@ NLU의 `parameters` 또는 `missingRequiredParameters`에 포함하지 않는다
 선택하므로 NLU가 반환하거나 누락으로 보고하지 않는다. `AI_AGENT_USAGE.provider`는
 `CLAUDE_CODE` 또는 `CODEX`로 정규화한다.
 
+`TEXT_SUMMARY`의 최소 길이는 공백·탭·줄바꿈을 제외해 계산한다. 공백은 요약할
+정보량을 늘리지 않으며, 공백을 반복해 최소 길이 검사를 우회하는 것을 막기 위한
+기준이다. 길이 판정과 별개로 요약 대상 원문 내부의 공백과 줄바꿈은 보존한다.
+
 검증 전용 PR의 `COMMAND`와 계약이 없는 `WEB_SEARCH`, `GENERAL_CHAT`은 반환하지 않는다.
 
 ## 기존 초안과의 관계
