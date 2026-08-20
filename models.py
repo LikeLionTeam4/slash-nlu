@@ -73,3 +73,40 @@ class AnalyzeResponse(BaseModel):
     question: Optional[str]
     confidence: float = Field(ge=0.0, le=1.0)
     analyzer: AnalyzerType
+
+
+class ExtractiveSummaryRequest(BaseModel):
+    requestId: str = Field(min_length=1)
+    taskId: str = Field(min_length=1)
+    text: str
+
+    @field_validator("requestId", "taskId")
+    @classmethod
+    def trace_ids_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("trace identifiers must not be blank")
+        return value
+
+
+class ExtractiveSummaryResponse(BaseModel):
+    requestId: str
+    taskId: str
+    summary: str
+    engine: Literal["EXTRACTIVE"]
+    algorithm: Literal["TFIDF_CENTROID"]
+    algorithmVersion: Literal["1"]
+    inputSentenceCount: int = Field(ge=1)
+    outputSentenceCount: int = Field(ge=1, le=3)
+    durationMs: int = Field(ge=0)
+
+
+class SummaryErrorDetail(BaseModel):
+    code: str
+    message: str
+    retryable: bool
+
+
+class SummaryErrorResponse(BaseModel):
+    error: SummaryErrorDetail
+    requestId: str
+    taskId: str

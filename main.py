@@ -6,12 +6,22 @@ from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
 from analyzer import NluAnalyzer
-from models import AnalyzeRequest, AnalyzeResponse, HealthResponse
+from models import (
+    AnalyzeRequest,
+    AnalyzeResponse,
+    ExtractiveSummaryRequest,
+    ExtractiveSummaryResponse,
+    HealthResponse,
+    SummaryErrorDetail,
+    SummaryErrorResponse,
+)
+from summary import ExtractiveSummarizer, SummaryInputError
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.analyzer = NluAnalyzer()
+    app.state.summarizer = ExtractiveSummarizer(app.state.analyzer.kiwi)
     yield
 
 
@@ -59,3 +69,30 @@ async def analyze(payload: AnalyzeRequest, request: Request) -> AnalyzeResponse:
         return analyzer.analyze_text(payload.requestId, payload.text, now)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="NLU analysis failed") from exc
+
+
+def summary_error(payload: ExtractiveSummaryRequest, error: SummaryInputError) -> JSONResponse:
+    body = SummaryErrorResponse(
+        error=SummaryErrorDetail(code=error.code, message=error.message, retryable=False),
+        requestId=payload.requestId,
+        taskId=payload.taskId,
+    )
+    return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content=body.model_dump())
+
+
+@app.post(
+    "/internal/v1/nlu/summaries/extractive",
+    response_model=ExtractiveSummaryResponse,
+    responses={400: {"model": SummaryErrorResponse, "description": "요약할 수 없는 입력"}},
+)
+async def summarize_extractive(payload: ExtractiveSummaryRequest, request: Request):
+    try:
+        summarizer: ExtractiveSummarizer = request.app.state.summarizer
+        return summarizer.summarize(payload.requestId, payload.taskId, payload.text)
+    except SummaryInputError as exc:
+        return summary_error(payload, exc)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Extractive summary failed",
+        ) from exc

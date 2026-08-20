@@ -12,7 +12,7 @@ RUN addgroup --system slash \
 COPY requirements-runtime.txt ./
 RUN python -m pip install --no-cache-dir -r requirements-runtime.txt
 
-COPY main.py models.py analyzer.py intents.py ./
+COPY main.py models.py analyzer.py intents.py summary.py ./
 USER slash
 
 EXPOSE 8001

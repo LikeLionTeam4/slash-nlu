@@ -16,7 +16,7 @@ jobs:
           cache: pip
       - run: python -m pip install -r requirements.txt
       - run: python -m pytest
-      - run: python -m compileall -q main.py models.py analyzer.py intents.py tests
+      - run: python -m compileall -q main.py models.py analyzer.py intents.py summary.py tests
 
   container-build:
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
@@ -49,6 +49,11 @@ jobs:
             --data '{"requestId":"container-smoke","text":"오늘 서울 날씨 어때","now":"2026-08-13T10:00:00+09:00"}' \
             http://127.0.0.1:8001/internal/v1/nlu/analyze \
             | python -c 'import json, sys; body = json.load(sys.stdin); assert body["decision"] == "TASK", body; assert body["taskType"] == "WEATHER_LOOKUP", body; assert body["parameters"]["location"] == "서울", body'
+          curl --fail --silent --show-error \
+            --header 'Content-Type: application/json' \
+            --data '{"requestId":"summary-smoke","taskId":"task-smoke","text":"The project team built a natural language service for user commands. Clear slash commands are handled before complex language analysis. File searches extract a query without exposing private local paths. Weather requests extract a location before the backend calls an external provider. Long documents are summarized by selecting important source sentences. Every result is validated before it is stored by the backend."}' \
+            http://127.0.0.1:8001/internal/v1/nlu/summaries/extractive \
+            | python -c 'import json, sys; body = json.load(sys.stdin); assert body["engine"] == "EXTRACTIVE", body; assert body["algorithm"] == "TFIDF_CENTROID", body; assert body["requestId"] == "summary-smoke", body; assert body["taskId"] == "task-smoke", body'
       - name: Stop test container
         if: always()
         run: docker rm --force slash-nlu-test || true
