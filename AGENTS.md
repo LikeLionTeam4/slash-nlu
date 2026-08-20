@@ -30,14 +30,15 @@
 - Pydantic 요청·응답 모델과 P0 TaskType/Slash 별칭이 정의돼 있다.
 - 규칙·Kiwi 분석 파이프라인과 계약 fixture·자동 테스트가 있다.
 - `slash-docs/api/*.md`와 노션 문서는 설계 예시이며 확정 계약이 아니다.
-- API Java enum과 Agent TypeScript enum의 P0 네 가지는 일치한다. P1과 Web 명령 트리는 별도 범위다.
+- 지원 TaskType은 Backend 목록과 Agent 실행 계약을 함께 확인하며, 상세 경계는
+  `docs/BACKEND_CONTRACT.md`를 따른다.
 - Backend 연동 경계는 `docs/BACKEND_CONTRACT.md`를 기준으로 하며, 검증 전용 `COMMAND`를 추가하지 않는다.
 
 ## 확정된 MVP 계약
 
 | 항목 | 결정 |
 |---|---|
-| TaskType | `FILE_SEARCH`, `SYSTEM_STATUS`, `WEATHER_LOOKUP`, `TEXT_SUMMARY` |
+| TaskType | `FILE_SEARCH`, `FILE_OPEN`, `SYSTEM_STATUS`, `WEATHER_LOOKUP`, `TEXT_SUMMARY`, `CODE_ANALYSIS`, `AI_AGENT_USAGE` |
 | JSON enum | `decision`, `taskType`, `analyzer`는 wire에서 string이며 Pydantic `str, Enum`으로 검증 |
 | DB 경계 | 저장 표현은 Backend 소유; 연동 기준은 `varchar + CHECK`, 값 추가는 Flyway migration 대상 |
 | 사용자 Rate Limit | `slash-api` 소유; NLU는 사용자/IP별 횟수 제한을 구현하지 않음 |
@@ -47,7 +48,10 @@
 | NLU 응답 | `decision`, `taskType`, `parameters`, `missingRequiredParameters`, `question`, `confidence`, `analyzer` |
 | 누락값 | `decision=CLARIFY`, taskType 유지, 누락 필드 목록 반환 |
 | FILE_SEARCH | NLU는 `query`와 자연어에 명시된 날짜 범위(`after`, `before`)를 추출; `searchFolderId`는 생성·누락 판정하지 않음 |
+| FILE_OPEN | Slash 전용; 검색 결과의 불투명한 `fileRef` 한 토큰을 변형 없이 전달 |
 | TEXT_SUMMARY | `text`가 공백 제거 후 150자 미만이면 `CLARIFY` |
+| CODE_ANALYSIS | Slash 전용; NLU는 `query`만 추출하고 `workspaceId`는 Backend가 제공 |
+| AI_AGENT_USAGE | Slash 전용; `provider`를 `CLAUDE_CODE` 또는 `CODEX`로 정규화 |
 | 미지원 입력 | 명백한 미지원은 `UNSUPPORTED`, 서비스 후보지만 값이 부족하면 `CLARIFY` |
 | 라우팅 | `processingRoute`를 결정하거나 반환하지 않음 |
 

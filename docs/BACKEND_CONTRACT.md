@@ -34,6 +34,8 @@ NLU 응답은 평탄 JSON이다. Backend가 공개 응답 envelope와 Task 이�
 | `taskType`, 의미 파라미터, 누락값 | NLU |
 | `processingRoute`, Task 상태, 공개 envelope | Backend |
 | `selectedDeviceId`, `searchFolderId` | Backend/Agent |
+| `workspaceId` | Backend/Agent |
+| `fileRef` 발급·해석 | Agent |
 | 사용자/IP Rate Limit | Backend |
 
 `FILE_SEARCH`에서 NLU는 `query`와 자연어에서 명시된 날짜 범위만 반환한다.
@@ -42,8 +44,26 @@ NLU의 `parameters` 또는 `missingRequiredParameters`에 포함하지 않는다
 
 ## 지원 범위
 
-P0는 `FILE_SEARCH`, `SYSTEM_STATUS`, `WEATHER_LOOKUP`, `TEXT_SUMMARY` 네 가지다.
-검증 전용 PR의 `COMMAND`와 향후 후보인 `WEB_SEARCH`, `GENERAL_CHAT`은 반환하지 않는다.
+| TaskType | 우선순위 | NLU 필수 파라미터 | 입력 경로 |
+|---|---|---|---|
+| `FILE_SEARCH` | P0 | `query` | Slash·자연어 |
+| `FILE_OPEN` | P0 | `fileRef` | Slash 전용 |
+| `SYSTEM_STATUS` | P0 | 없음 | Slash·자연어 |
+| `WEATHER_LOOKUP` | P0 | `location` | Slash·자연어 |
+| `TEXT_SUMMARY` | P0 | `text` | Slash·자연어 |
+| `CODE_ANALYSIS` | P0 | `query` | Slash 전용 |
+| `AI_AGENT_USAGE` | P0 | `provider` | Slash 전용 |
+
+`FILE_OPEN`의 `fileRef`는 검색 결과에서 받은 불투명한 한 토큰이며 NLU가 정규화하거나
+내용을 검증하지 않는다. `CODE_ANALYSIS.workspaceId`는 등록된 작업 폴더 중 Backend가
+선택하므로 NLU가 반환하거나 누락으로 보고하지 않는다. `AI_AGENT_USAGE.provider`는
+`CLAUDE_CODE` 또는 `CODEX`로 정규화한다.
+
+`TEXT_SUMMARY`의 최소 길이는 공백·탭·줄바꿈을 제외해 계산한다. 공백은 요약할
+정보량을 늘리지 않으며, 공백을 반복해 최소 길이 검사를 우회하는 것을 막기 위한
+기준이다. 길이 판정과 별개로 요약 대상 원문 내부의 공백과 줄바꿈은 보존한다.
+
+검증 전용 PR의 `COMMAND`와 계약이 없는 `WEB_SEARCH`, `GENERAL_CHAT`은 반환하지 않는다.
 
 ## 기존 초안과의 관계
 
@@ -59,19 +79,34 @@ Backend `TaskType.p0Values()`와 NLU OpenAPI를 기준으로 하며, 초안 필�
 | 없음 | `requestId` | 요청·응답 추적 ID 왕복 보존 |
 | `args.question` | `missingRequiredParameters` + `question` | Backend가 누락값을 구조적으로 처리 가능 |
 
-Backend P0는 `WEATHER_LOOKUP`, `FILE_SEARCH`, `SYSTEM_STATUS`, `TEXT_SUMMARY`이며
-NLU도 이 네 값만 반환한다. Backend의 P1 `CODE_ANALYSIS`, `AI_AGENT_USAGE`는 이번
-NLU 범위가 아니고, 공통 초안의 `WEATHER` 표기는 `WEATHER_LOOKUP`으로 정규화한다.
+공통 초안의 `WEATHER` 표기는 `WEATHER_LOOKUP`으로 정규화한다. `CODE_ANALYSIS`는
+P0이지만 명시적인 Slash 입력만 분석하고 자연어에서 추측하지 않는다.
+
+## CODE_ANALYSIS 계약
+
+확정된 `CODE_ANALYSIS` 입력 계약은 아래와 같다.
+
+| 필드 | 소유자 | 필수 여부 |
+|---|---|---|
+| `query` | NLU | 필수 |
+| `workspaceId` | Backend/Agent | 필수 |
+| `codeAdapter` | Backend/Agent | 선택 |
+
+Backend `TaskType.CODE_ANALYSIS`는 `requiredParameters=[query, workspaceId]`,
+`backendProvidedParameters=[workspaceId]`, `nluRequiredParameters=[query]`를 노출한다.
+Backend의 `READY.projectWorkspaces` 저장·선택 경로는 slash-api#53에서 반영됐다.
+설치된 Agent 트레이 앱이 프로젝트 폴더를 등록·보고하기 전에는 종단 실행이
+`WORKSPACE_NOT_FOUND`로 끝날 수 있다.
 
 ## TaskType 목록 계약 확인
 
-Backend는 인증이 필요한 `GET /api/v1/task-types`로 P0와 P1 전체 목록을 반환한다.
+Backend는 인증이 필요한 `GET /api/v1/task-types`로 전체 TaskType 목록을 반환한다.
 NLU의 opt-in 계약 테스트는 `NLU_CONTRACT_BASE_URL`과 `NLU_CONTRACT_TOKEN`이 모두
 설정된 경우에만 이 endpoint를 호출한다. 기본 단위 테스트는 실행 중인 Backend에
 의존하지 않는다.
 
-NLU는 `priority=P0`인 네 TaskType과 각 항목의 `nluRequiredParameters`만 비교한다.
+NLU는 지원하는 TaskType 전체의 `priority`와 `nluRequiredParameters`를 비교한다.
 `requiredParameters` 전체, `backendProvidedParameters`, `processingRoute`는 NLU 소유가
 아니다. 특히 `FILE_SEARCH.searchFolderId`는 Backend가 채우는 값이며 NLU의
-`parameters` 또는 `missingRequiredParameters`에 넣지 않는다. P1 목록은 NLU의 MVP
-지원 범위를 결정하지 않는다.
+`parameters` 또는 `missingRequiredParameters`에 넣지 않는다. `CODE_ANALYSIS.workspaceId`도
+같은 원칙을 적용한다.
