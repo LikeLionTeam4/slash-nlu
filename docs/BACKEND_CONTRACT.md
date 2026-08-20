@@ -51,7 +51,7 @@ NLU의 `parameters` 또는 `missingRequiredParameters`에 포함하지 않는다
 | `SYSTEM_STATUS` | P0 | 없음 | Slash·자연어 |
 | `WEATHER_LOOKUP` | P0 | `location` | Slash·자연어 |
 | `TEXT_SUMMARY` | P0 | `text` | Slash·자연어 |
-| `CODE_ANALYSIS` | P1 | `query` | Slash 전용 |
+| `CODE_ANALYSIS` | P0 | `query` | Slash 전용 |
 | `AI_AGENT_USAGE` | P0 | `provider` | Slash 전용 |
 
 `FILE_OPEN`의 `fileRef`는 검색 결과에서 받은 불투명한 한 토큰이며 NLU가 정규화하거나
@@ -80,11 +80,11 @@ Backend `TaskType.p0Values()`와 NLU OpenAPI를 기준으로 하며, 초안 필�
 | `args.question` | `missingRequiredParameters` + `question` | Backend가 누락값을 구조적으로 처리 가능 |
 
 공통 초안의 `WEATHER` 표기는 `WEATHER_LOOKUP`으로 정규화한다. `CODE_ANALYSIS`는
-P1이지만 명시적인 Slash 입력만 분석하고 자연어에서 추측하지 않는다.
+P0이지만 명시적인 Slash 입력만 분석하고 자연어에서 추측하지 않는다.
 
-## Backend 후속 계약
+## CODE_ANALYSIS 계약
 
-NLU가 제안하는 `CODE_ANALYSIS` 입력 계약은 아래와 같다.
+확정된 `CODE_ANALYSIS` 입력 계약은 아래와 같다.
 
 | 필드 | 소유자 | 필수 여부 |
 |---|---|---|
@@ -92,19 +92,20 @@ NLU가 제안하는 `CODE_ANALYSIS` 입력 계약은 아래와 같다.
 | `workspaceId` | Backend/Agent | 필수 |
 | `codeAdapter` | Backend/Agent | 선택 |
 
-따라서 Backend `TaskType.CODE_ANALYSIS`는 `requiredParameters=[query, workspaceId]`,
-`backendProvidedParameters=[workspaceId]`, `nluRequiredParameters=[query]`를 노출해야 한다.
-현재 Backend가 Agent의 `READY.projectWorkspaces`를 저장하지 않는 동안에는 종단 실행이
-`WORKSPACE_NOT_FOUND`로 끝날 수 있으므로, 저장·선택 경로가 함께 구현돼야 한다.
+Backend `TaskType.CODE_ANALYSIS`는 `requiredParameters=[query, workspaceId]`,
+`backendProvidedParameters=[workspaceId]`, `nluRequiredParameters=[query]`를 노출한다.
+Backend의 `READY.projectWorkspaces` 저장·선택 경로는 slash-api#53에서 반영됐다.
+설치된 Agent 트레이 앱이 프로젝트 폴더를 등록·보고하기 전에는 종단 실행이
+`WORKSPACE_NOT_FOUND`로 끝날 수 있다.
 
 ## TaskType 목록 계약 확인
 
-Backend는 인증이 필요한 `GET /api/v1/task-types`로 P0와 P1 전체 목록을 반환한다.
+Backend는 인증이 필요한 `GET /api/v1/task-types`로 전체 TaskType 목록을 반환한다.
 NLU의 opt-in 계약 테스트는 `NLU_CONTRACT_BASE_URL`과 `NLU_CONTRACT_TOKEN`이 모두
 설정된 경우에만 이 endpoint를 호출한다. 기본 단위 테스트는 실행 중인 Backend에
 의존하지 않는다.
 
-NLU는 지원하는 P0 전체와 Slash로 지원하는 P1 항목의 `nluRequiredParameters`를 비교한다.
+NLU는 지원하는 TaskType 전체의 `priority`와 `nluRequiredParameters`를 비교한다.
 `requiredParameters` 전체, `backendProvidedParameters`, `processingRoute`는 NLU 소유가
 아니다. 특히 `FILE_SEARCH.searchFolderId`는 Backend가 채우는 값이며 NLU의
 `parameters` 또는 `missingRequiredParameters`에 넣지 않는다. `CODE_ANALYSIS.workspaceId`도

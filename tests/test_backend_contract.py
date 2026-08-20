@@ -22,7 +22,7 @@ SUPPORTED_PRIORITIES = {
     TaskType.SYSTEM_STATUS: "P0",
     TaskType.WEATHER_LOOKUP: "P0",
     TaskType.TEXT_SUMMARY: "P0",
-    TaskType.CODE_ANALYSIS: "P1",
+    TaskType.CODE_ANALYSIS: "P0",
     TaskType.AI_AGENT_USAGE: "P0",
 }
 
