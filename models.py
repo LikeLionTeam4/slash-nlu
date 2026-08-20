@@ -13,9 +13,12 @@ class Decision(str, Enum):
 
 class TaskType(str, Enum):
     FILE_SEARCH = "FILE_SEARCH"
+    FILE_OPEN = "FILE_OPEN"
     SYSTEM_STATUS = "SYSTEM_STATUS"
     WEATHER_LOOKUP = "WEATHER_LOOKUP"
     TEXT_SUMMARY = "TEXT_SUMMARY"
+    CODE_ANALYSIS = "CODE_ANALYSIS"
+    AI_AGENT_USAGE = "AI_AGENT_USAGE"
 
 
 class AnalyzerType(str, Enum):

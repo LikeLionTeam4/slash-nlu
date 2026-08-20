@@ -44,13 +44,18 @@ namespace의 Backend에는 `NLU_BASE_URL=http://slash-nlu`를 주입합니다.
 ## MVP 계약
 
 - `text` 또는 `command={path, operands}` 중 정확히 하나를 전달합니다.
-- 지원 작업은 `FILE_SEARCH`, `SYSTEM_STATUS`, `WEATHER_LOOKUP`, `TEXT_SUMMARY`입니다.
+- 지원 작업은 `FILE_SEARCH`, `FILE_OPEN`, `SYSTEM_STATUS`, `WEATHER_LOOKUP`,
+  `TEXT_SUMMARY`, `CODE_ANALYSIS`, `AI_AGENT_USAGE`입니다.
 - `decision`, `taskType`, `analyzer`는 JSON에서 문자열로 직렬화되는 **string enum**입니다.
 - DB 저장 방식은 Backend 소유입니다. 현재 연동 기준은 `varchar + CHECK`이며 값 추가 시 Flyway migration으로 제약조건을 갱신합니다.
 - 사용자/IP별 요청 횟수 제한과 `429 RATE_LIMITED` 응답은 인증 정보를 가진 Backend가 담당합니다.
 - NLU는 실행 위치(`processingRoute`)를 결정하거나 반환하지 않습니다.
 - `FILE_SEARCH.searchFolderId`는 Backend가 보완하며 NLU의 누락 판정 대상이 아닙니다.
+- `FILE_OPEN.fileRef`는 검색 결과에서 받은 불투명한 한 토큰을 변형 없이 전달합니다.
 - `TEXT_SUMMARY.text`는 LLM 입력 정책과 동일하게 공백 제거 후 150자 이상이어야 합니다.
+- `CODE_ANALYSIS`는 NLU가 `query`만 추출하고 Backend가 `workspaceId`를 보완합니다.
+- `AI_AGENT_USAGE.provider`는 `CLAUDE_CODE` 또는 `CODEX`로 정규화합니다.
+- `FILE_OPEN`, `CODE_ANALYSIS`, `AI_AGENT_USAGE`는 명시적인 Slash 입력에서만 판정합니다.
 - 자연어 분석 순서는 명시 규칙 → Kiwi/키워드 → fallback입니다.
 
 ## 구조
