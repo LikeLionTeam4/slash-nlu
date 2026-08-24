@@ -97,12 +97,49 @@ def test_weather_expressions_extract_only_the_location(client, text, location):
     assert body["parameters"] == {"location": location}
 
 
+@pytest.mark.parametrize(
+    ("path", "operands", "location"),
+    [
+        (["weather"], ["서울 날씨 어때?"], "서울"),
+        (["날씨"], ["서울 기온 알려줘"], "서울"),
+        (["weather"], ["weather 서울"], "서울"),
+        (["날씨"], ["오늘 서울 날씨 확인해줘"], "서울"),
+    ],
+)
+def test_weather_slash_operands_use_the_same_location_cleanup_as_natural_language(
+    client, path, operands, location
+):
+    body = post(
+        client,
+        {"requestId": "req-weather-slash-expression", "command": {"path": path, "operands": operands}},
+    ).json()
+
+    assert body["decision"] == "TASK"
+    assert body["taskType"] == "WEATHER_LOOKUP"
+    assert body["parameters"] == {"location": location}
+
+
 @pytest.mark.parametrize("text", ["기온 알려줘", "날씨 알려줘"])
 def test_weather_without_location_clarifies(client, text):
     body = post(client, {"requestId": "req-weather-missing", "text": text}).json()
 
     assert body["decision"] == "CLARIFY"
     assert body["taskType"] == "WEATHER_LOOKUP"
+    assert body["missingRequiredParameters"] == ["location"]
+
+
+def test_weather_slash_without_location_clarifies_after_cleanup(client):
+    body = post(
+        client,
+        {
+            "requestId": "req-weather-slash-missing",
+            "command": {"path": ["weather"], "operands": ["날씨 알려줘"]},
+        },
+    ).json()
+
+    assert body["decision"] == "CLARIFY"
+    assert body["taskType"] == "WEATHER_LOOKUP"
+    assert body["parameters"] == {}
     assert body["missingRequiredParameters"] == ["location"]
 
 
@@ -214,6 +251,32 @@ def test_summary_minimum_excludes_whitespace(client, character_count, decision):
 
     assert body["decision"] == decision
     assert body["taskType"] == "TEXT_SUMMARY"
+
+
+def test_summary_slash_joins_legacy_split_operands_with_spaces(client):
+    words = ["프로젝트", "회의에서", "결정된", "내용과", "후속", "작업을", "정리한", "긴", "원문입니다."] * 8
+    body = post(
+        client,
+        {"requestId": "req-summary-legacy-operands", "command": {"path": ["summary"], "operands": words}},
+    ).json()
+
+    assert body["decision"] == "TASK"
+    assert body["parameters"]["text"] == " ".join(words)
+
+
+def test_summary_slash_preserves_internal_whitespace_in_single_free_text_operand(client):
+    original = (
+        "첫 문단은  여러 공백을 그대로 유지합니다.\n"
+        "둘째 문단도 줄바꿈을 보존해야 합니다. "
+        + "서로 다른 의미를 가진 충분히 긴 문장을 반복하지 않고 작성합니다. " * 8
+    ).rstrip()
+    body = post(
+        client,
+        {"requestId": "req-summary-original-spacing", "command": {"path": ["요약"], "operands": [original]}},
+    ).json()
+
+    assert body["decision"] == "TASK"
+    assert body["parameters"]["text"] == original
 
 
 @pytest.mark.parametrize(

@@ -54,9 +54,13 @@ class NluAnalyzer:
             # fileRef 는 PC 가 발급한 불투명한 한 토큰이다. 파일 검색어처럼 정리하지 않는다.
             parameters["fileRef"] = values[0]
         elif task_type == TaskType.WEATHER_LOOKUP and values:
-            parameters["location"] = " ".join(values)
+            location = self._extract_location(" ".join(values))
+            if location:
+                parameters["location"] = location
         elif task_type == TaskType.TEXT_SUMMARY and values:
-            parameters["text"] = "\n".join(values)
+            # Backend는 자유 텍스트를 한 operand로 보내 내부 공백과 줄바꿈을 보존한다.
+            # 예전처럼 단어별 operands가 들어와도 임의의 개행을 만들지 않도록 공백으로 잇는다.
+            parameters["text"] = " ".join(values)
         elif task_type == TaskType.CODE_ANALYSIS and values:
             # workspaceId 는 등록된 작업 폴더 중에서 Backend 가 선택한다.
             parameters["query"] = " ".join(values)
