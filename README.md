@@ -98,6 +98,33 @@ python -m compileall .
 pytest
 ```
 
+### CPU 요약 부하 시험
+
+CPU 추출 요약의 입력 크기별 p50·p95 지연, 처리량, 프로세스 CPU 시간과 최대 RSS를
+JSON으로 확인할 수 있습니다. 기본값은 500·2000·8000자 문서를 각각 2회 준비 실행한 뒤
+20회 측정하며, 동시성 4로 직접 실행합니다. Analyzer와 Kiwi는 운영 프로세스처럼 모든
+입력 크기에서 하나를 재사용합니다.
+
+```bash
+python scripts/benchmark_summary.py
+```
+
+실제 HTTP 경계까지 확인하려면 NLU를 먼저 실행하고 `--base-url`을 지정합니다.
+
+```bash
+python scripts/benchmark_summary.py \
+  --base-url http://localhost:8001 \
+  --requests 50 \
+  --concurrency 8
+```
+
+환경별 성능 기준을 명시적으로 검사할 때만 `--max-p95-ms`와
+`--min-throughput-rps`를 사용합니다. 기본 테스트는 실행 환경 차이로 CI가 불안정해지지
+않도록 시간 기준을 강제하지 않습니다. 이 도구는 원문이나 실패 응답 본문을 출력하지
+않습니다. 직접 실행 결과의 CPU·RSS는 NLU 프로세스 값이며, HTTP 실행 결과에서는 부하를
+보내는 클라이언트 프로세스 값입니다. 배포된 NLU Pod의 CPU·메모리는 Kubernetes
+모니터링 지표로 별도 확인해야 합니다.
+
 ### 팀 통합 스모크 테스트
 
 `slash-nlu`와 sibling `slash-llm` 저장소를 나란히 둔 환경에서는 LLM 저장소의
