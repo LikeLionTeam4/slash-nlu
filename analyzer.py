@@ -21,6 +21,11 @@ _WEATHER_END = re.compile(
     r"[?!.\s]*$",
     flags=re.IGNORECASE,
 )
+_WEATHER_REQUEST_END = re.compile(
+    r"(?:\s*(?:어때(?:요)?|알려\s*줘(?:요)?|알려줘(?:요)?|확인해\s*줘(?:요)?|확인해줘(?:요)?))"
+    r"[?!.\s]*$",
+    flags=re.IGNORECASE,
+)
 _TEMPORAL_LOCATION_WORDS = {"오늘", "내일", "현재", "지금", "이번주", "이번 주"}
 _SUMMARY_MAX_INPUT_CHARS = 8000
 _USAGE_PROVIDER_ALIASES = {
@@ -138,6 +143,9 @@ class NluAnalyzer:
     def _extract_location(text: str) -> str:
         cleaned = _WEATHER_END.sub("", text).strip()
         cleaned = re.sub(r"^(?:날씨|기온|weather)(?:은|는|를)?\s*", "", cleaned, flags=re.IGNORECASE).strip()
+        # 키워드가 문장 앞에 오면 위의 _WEATHER_END가 요청 표현까지 제거하지 못한다.
+        # 예: "weather 서울 알려줘"에서 "알려줘"가 지역명에 섞이지 않게 정리한다.
+        cleaned = _WEATHER_REQUEST_END.sub("", cleaned).strip()
         return " ".join(word for word in cleaned.split() if word not in _TEMPORAL_LOCATION_WORDS).strip(" ,")
 
     @staticmethod

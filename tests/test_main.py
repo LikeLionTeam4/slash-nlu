@@ -87,6 +87,7 @@ def test_natural_language_tasks(client, text, task_type):
         ("서울 기온 알려줘", "서울"),
         ("서울 weather", "서울"),
         ("weather 서울", "서울"),
+        ("weather 서울 알려줘", "서울"),
     ],
 )
 def test_weather_expressions_extract_only_the_location(client, text, location):
@@ -103,6 +104,7 @@ def test_weather_expressions_extract_only_the_location(client, text, location):
         (["weather"], ["서울 날씨 어때?"], "서울"),
         (["날씨"], ["서울 기온 알려줘"], "서울"),
         (["weather"], ["weather 서울"], "서울"),
+        (["weather"], ["weather 서울 알려줘"], "서울"),
         (["날씨"], ["오늘 서울 날씨 확인해줘"], "서울"),
     ],
 )
