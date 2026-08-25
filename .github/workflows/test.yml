@@ -25,7 +25,7 @@ jobs:
       - run: python -m pytest
         env:
           BACKEND_TASK_TYPE_SOURCE: .contract/slash-api/src/main/java/com/likelion/slash/common/enums/TaskType.java
-      - run: python -m compileall -q main.py models.py analyzer.py intents.py summary.py tests
+      - run: python -m compileall -q main.py models.py analyzer.py intents.py summary.py scripts tests
 
   container-build:
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
