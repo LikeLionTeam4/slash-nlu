@@ -10,12 +10,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Checkout Backend contract source
+        uses: actions/checkout@v4
+        with:
+          repository: LikeLionTeam4/slash-api
+          ref: dev
+          path: .contract/slash-api
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
       - run: python -m pip install -r requirements.txt
       - run: python -m pytest
+        env:
+          BACKEND_TASK_TYPE_SOURCE: .contract/slash-api/src/main/java/com/likelion/slash/common/enums/TaskType.java
       - run: python -m compileall -q main.py models.py analyzer.py intents.py summary.py tests
 
   container-build:

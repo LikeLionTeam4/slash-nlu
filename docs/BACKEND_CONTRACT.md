@@ -101,9 +101,9 @@ Backend의 `READY.projectWorkspaces` 저장·선택 경로는 slash-api#53에서
 ## TaskType 목록 계약 확인
 
 Backend는 인증이 필요한 `GET /api/v1/task-types`로 전체 TaskType 목록을 반환한다.
-NLU의 opt-in 계약 테스트는 `NLU_CONTRACT_BASE_URL`과 `NLU_CONTRACT_TOKEN`이 모두
-설정된 경우에만 이 endpoint를 호출한다. 기본 단위 테스트는 실행 중인 Backend에
-의존하지 않는다.
+NLU CI는 공개 `slash-api` 저장소의 `dev`에서 이 목록의 원본인 `TaskType.java`를
+읽기 전용으로 받아, 저장된 계약 fixture와 직접 대조한다. 로컬에서는 같은 fixture로
+항상 계약 검사를 실행하므로 Backend 서버나 인증 토큰이 없어도 테스트가 skip되지 않는다.
 
 NLU는 지원하는 TaskType 전체의 `priority`와 `nluRequiredParameters`를 비교한다.
 `requiredParameters` 전체, `backendProvidedParameters`, `processingRoute`는 NLU 소유가
