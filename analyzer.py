@@ -11,13 +11,17 @@ from models import AnalyzeResponse, AnalyzerType, CommandInput, Decision, TaskTy
 _SPACE = re.compile(r"\s+")
 _FILE_EXTENSION = re.compile(r"\.(?:pdf|ppt)(?!\w)", flags=re.IGNORECASE)
 _FILE_ACTION_FORMS = {"찾", "검색", "find", "search"}
+_FILE_UNSUPPORTED_ACTION_FORMS = {"삭제", "지우", "만들", "생성", "delete", "remove", "create"}
 _FILE_GENERIC_SUBJECTS = {"파일", "문서", "file"}
 _DOCUMENT_NAME_ENDING = re.compile(r"(?:^|\s)[^\s]{2,}(?:안|서|록)$")
 _QUOTATIVE_ENDING = re.compile(r"(?:이?라는|라고(?:\s*하는)?)$")
 _SUMMARY_ACTIONS = re.compile(r"(?:요약해\s*줘|요약해줘|요약해|요약)$")
-_WEATHER_REQUEST = r"(?:어때(?:요)?|알려\s*줘(?:요)?|알려줘(?:요)?|확인해\s*줘(?:요)?|확인해줘(?:요)?)"
+_WEATHER_REQUEST = (
+    r"(?:어때(?:요)?|궁금해(?:요)?|알려\s*줘(?:요)?|알려줘(?:요)?|"
+    r"확인해\s*줘(?:요)?|확인해줘(?:요)?)"
+)
 _WEATHER_END = re.compile(
-    r"(?:의\s*)?(?:날씨|기온|weather)(?:가|는|를|도|은)?"
+    r"(?:의\s*)?(?:날씨|기온|weather)(?:이|가|는|를|도|은)?"
     rf"(?:\s*{_WEATHER_REQUEST})?"
     r"[?!.\s]*$",
     flags=re.IGNORECASE,
@@ -100,6 +104,10 @@ class NluAnalyzer:
             # FILE_OPEN은 검색 결과의 fileRef를 받는 내부 Slash 경로다. 자연어에서 파일명을
             # fileRef로 추측하거나 FILE_SEARCH로 잘못 되묻지 않는다.
             return self._unsupported(request_id, AnalyzerType.RULE_KIWI, 0.0)
+        if self._has_file_subject(normalized, surfaces) and any(
+            action in surfaces for action in _FILE_UNSUPPORTED_ACTION_FORMS
+        ):
+            return self._unsupported(request_id, AnalyzerType.RULE_KIWI, 0.0)
         if self._has_file_subject(normalized, surfaces):
             return self._task_or_clarify(request_id, TaskType.FILE_SEARCH, {}, AnalyzerType.RULE_KIWI, 0.55)
         return self._unsupported(request_id, AnalyzerType.RULE_KIWI, 0.0)
@@ -143,7 +151,12 @@ class NluAnalyzer:
     @staticmethod
     def _extract_location(text: str) -> str:
         cleaned = _WEATHER_END.sub("", text).strip()
-        cleaned = re.sub(r"^(?:날씨|기온|weather)(?:은|는|를)?\s*", "", cleaned, flags=re.IGNORECASE).strip()
+        cleaned = re.sub(
+            r"^(?:날씨|기온|weather)(?:이|가|은|는|를|도)?\s*",
+            "",
+            cleaned,
+            flags=re.IGNORECASE,
+        ).strip()
         # 키워드가 문장 앞에 오면 위의 _WEATHER_END가 요청 표현까지 제거하지 못한다.
         # 예: "weather 서울 알려줘"에서 "알려줘"가 지역명에 섞이지 않게 정리한다.
         cleaned = _WEATHER_REQUEST_END.sub("", cleaned).strip()

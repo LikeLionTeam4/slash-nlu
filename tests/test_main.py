@@ -85,6 +85,7 @@ def test_natural_language_tasks(client, text, task_type):
     [
         ("오늘 서울 날씨 어때?", "서울"),
         ("서울 기온 알려줘", "서울"),
+        ("서울 기온이 궁금해", "서울"),
         ("서울 weather", "서울"),
         ("weather 서울", "서울"),
         ("weather 서울 알려줘", "서울"),
@@ -121,7 +122,10 @@ def test_weather_slash_operands_use_the_same_location_cleanup_as_natural_languag
     assert body["parameters"] == {"location": location}
 
 
-@pytest.mark.parametrize("text", ["기온 알려줘", "날씨 알려줘"])
+@pytest.mark.parametrize(
+    "text",
+    ["기온 알려줘", "날씨 알려줘", "기온이 궁금해", "날씨가 궁금해요"],
+)
 def test_weather_without_location_clarifies(client, text):
     body = post(client, {"requestId": "req-weather-missing", "text": text}).json()
 
@@ -232,6 +236,34 @@ def test_service_candidate_without_parameter_clarifies(client):
     assert body["decision"] == "CLARIFY"
     assert body["taskType"] == "FILE_SEARCH"
     assert body["missingRequiredParameters"] == ["query"]
+
+
+@pytest.mark.parametrize("text", ["파일", "문서", "file"])
+def test_bare_file_subject_clarifies(client, text):
+    body = post(client, {"requestId": "req-bare-file", "text": text}).json()
+
+    assert body["decision"] == "CLARIFY"
+    assert body["taskType"] == "FILE_SEARCH"
+    assert body["missingRequiredParameters"] == ["query"]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "파일을 삭제해줘",
+        "파일 지워줘",
+        "보고서 만들어줘",
+        "문서 생성해줘",
+        "delete report file",
+        "create report file",
+    ],
+)
+def test_non_search_file_actions_are_unsupported(client, text):
+    body = post(client, {"requestId": "req-unsupported-file-action", "text": text}).json()
+
+    assert body["decision"] == "UNSUPPORTED"
+    assert body["taskType"] is None
+    assert body["parameters"] == {}
 
 
 @pytest.mark.parametrize("payload", [
