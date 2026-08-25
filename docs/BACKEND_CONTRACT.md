@@ -104,6 +104,9 @@ Backend는 인증이 필요한 `GET /api/v1/task-types`로 전체 TaskType 목�
 NLU CI는 공개 `slash-api` 저장소의 `dev`에서 이 목록의 원본인 `TaskType.java`를
 읽기 전용으로 받아, 저장된 계약 fixture와 직접 대조한다. 로컬에서는 같은 fixture로
 항상 계약 검사를 실행하므로 Backend 서버나 인증 토큰이 없어도 테스트가 skip되지 않는다.
+이 검사는 배포된 API 응답이 아니라 Backend enum 소스를 확인한다. 공개 endpoint의 실제
+응답 직렬화는 Backend 테스트가 담당하며, 장기적으로 Backend가 JSON 계약 산출물을 제공하면
+NLU는 Java 소스 파싱 대신 그 산출물을 소비한다.
 
 NLU는 지원하는 TaskType 전체의 `priority`와 `nluRequiredParameters`를 비교한다.
 `requiredParameters` 전체, `backendProvidedParameters`, `processingRoute`는 NLU 소유가
