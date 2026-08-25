@@ -1,0 +1,51 @@
+[
+  {
+    "taskType": "WEATHER_LOOKUP",
+    "priority": "P0",
+    "requiredParameters": ["location"],
+    "nluRequiredParameters": ["location"],
+    "backendProvidedParameters": []
+  },
+  {
+    "taskType": "FILE_SEARCH",
+    "priority": "P0",
+    "requiredParameters": ["query", "searchFolderId"],
+    "nluRequiredParameters": ["query"],
+    "backendProvidedParameters": ["searchFolderId"]
+  },
+  {
+    "taskType": "FILE_OPEN",
+    "priority": "P0",
+    "requiredParameters": ["fileRef"],
+    "nluRequiredParameters": ["fileRef"],
+    "backendProvidedParameters": []
+  },
+  {
+    "taskType": "SYSTEM_STATUS",
+    "priority": "P0",
+    "requiredParameters": [],
+    "nluRequiredParameters": [],
+    "backendProvidedParameters": []
+  },
+  {
+    "taskType": "TEXT_SUMMARY",
+    "priority": "P0",
+    "requiredParameters": ["text"],
+    "nluRequiredParameters": ["text"],
+    "backendProvidedParameters": []
+  },
+  {
+    "taskType": "CODE_ANALYSIS",
+    "priority": "P0",
+    "requiredParameters": ["query", "workspaceId"],
+    "nluRequiredParameters": ["query"],
+    "backendProvidedParameters": ["workspaceId"]
+  },
+  {
+    "taskType": "AI_AGENT_USAGE",
+    "priority": "P0",
+    "requiredParameters": ["provider"],
+    "nluRequiredParameters": ["provider"],
+    "backendProvidedParameters": []
+  }
+]
