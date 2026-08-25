@@ -125,6 +125,29 @@ python scripts/benchmark_summary.py \
 보내는 클라이언트 프로세스 값입니다. 배포된 NLU Pod의 CPU·메모리는 Kubernetes
 모니터링 지표로 별도 확인해야 합니다.
 
+### NLU 혼합 분류 부하 시험
+
+7개 TaskType과 `TASK`·`CLARIFY`·`UNSUPPORTED`를 섞은 고정 fixture로 분류 정확도와
+p50·p95 지연, 처리량, CPU 시간, 최대 RSS를 함께 확인할 수 있습니다. 기본값은 10회 준비
+실행 후 100회 측정하며 동시성은 8입니다. 계약과 다른 응답은 성능 수치와 별개로 실패합니다.
+
+```bash
+python scripts/benchmark_analyzer.py
+```
+
+실행 중인 NLU의 HTTP 경계와 Backend 제한에 맞춘 2초 timeout까지 확인할 수 있습니다.
+
+```bash
+python scripts/benchmark_analyzer.py \
+  --base-url http://localhost:8001 \
+  --requests 200 \
+  --concurrency 10
+```
+
+환경별 기준이 정해진 경우에만 `--max-p95-ms`와 `--min-throughput-rps`를 추가합니다.
+fixture는 원문을 출력하지 않으며, 실패 시 요청·응답 내용 대신 실패 건수와 불일치 필드만
+보고합니다. HTTP 모드의 CPU·RSS는 NLU Pod가 아니라 부하 생성기 프로세스 값입니다.
+
 ### 팀 통합 스모크 테스트
 
 `slash-nlu`와 sibling `slash-llm` 저장소를 나란히 둔 환경에서는 LLM 저장소의
