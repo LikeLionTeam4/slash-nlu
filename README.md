@@ -148,6 +148,10 @@ python scripts/benchmark_analyzer.py \
 fixture는 원문을 출력하지 않으며, 실패 시 요청·응답 내용 대신 실패 건수와 불일치 필드만
 보고합니다. HTTP 모드의 CPU·RSS는 NLU Pod가 아니라 부하 생성기 프로세스 값입니다.
 
+추가 실패 사례는 `tests/fixtures/analyzer_edge_cases.json`에서 관리합니다. 현재 판정을
+회귀 기준으로 기록하고, `RULE_CANDIDATE`·`LLM_EXPERIMENT`·`UNSUPPORTED`로 나눠 규칙
+수정과 LLM 실험이 섞이지 않게 합니다. `proposal`은 검토할 방향이며 확정 계약이 아닙니다.
+
 ### 팀 통합 스모크 테스트
 
 `slash-nlu`와 sibling `slash-llm` 저장소를 나란히 둔 환경에서는 LLM 저장소의
