@@ -15,14 +15,15 @@ _FILE_GENERIC_SUBJECTS = {"파일", "문서", "file"}
 _DOCUMENT_NAME_ENDING = re.compile(r"(?:^|\s)[^\s]{2,}(?:안|서|록)$")
 _QUOTATIVE_ENDING = re.compile(r"(?:이?라는|라고(?:\s*하는)?)$")
 _SUMMARY_ACTIONS = re.compile(r"(?:요약해\s*줘|요약해줘|요약해|요약)$")
+_WEATHER_REQUEST = r"(?:어때(?:요)?|알려\s*줘(?:요)?|알려줘(?:요)?|확인해\s*줘(?:요)?|확인해줘(?:요)?)"
 _WEATHER_END = re.compile(
     r"(?:의\s*)?(?:날씨|기온|weather)(?:가|는|를|도|은)?"
-    r"(?:\s*(?:어때(?:요)?|알려\s*줘(?:요)?|알려줘(?:요)?|확인해\s*줘(?:요)?|확인해줘(?:요)?))?"
+    rf"(?:\s*{_WEATHER_REQUEST})?"
     r"[?!.\s]*$",
     flags=re.IGNORECASE,
 )
 _WEATHER_REQUEST_END = re.compile(
-    r"(?:\s*(?:어때(?:요)?|알려\s*줘(?:요)?|알려줘(?:요)?|확인해\s*줘(?:요)?|확인해줘(?:요)?))"
+    rf"(?:\s*{_WEATHER_REQUEST})"
     r"[?!.\s]*$",
     flags=re.IGNORECASE,
 )
