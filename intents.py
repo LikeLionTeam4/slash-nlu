@@ -15,14 +15,22 @@ class IntentDefinition:
 
 
 INTENTS: Dict[TaskType, IntentDefinition] = {
-    TaskType.FILE_SEARCH: IntentDefinition(TaskType.FILE_SEARCH, ("query",), "어떤 파일을 찾을까요?"),
+    TaskType.FILE_SEARCH: IntentDefinition(
+        TaskType.FILE_SEARCH,
+        ("query",),
+        "어떤 파일을 찾을까요? 파일명이나 문서 종류를 입력해 주세요.",
+    ),
     TaskType.FILE_OPEN: IntentDefinition(
         TaskType.FILE_OPEN,
         ("fileRef",),
         "열 파일을 검색 결과에서 선택해 주세요.",
     ),
     TaskType.SYSTEM_STATUS: IntentDefinition(TaskType.SYSTEM_STATUS, (), ""),
-    TaskType.WEATHER_LOOKUP: IntentDefinition(TaskType.WEATHER_LOOKUP, ("location",), "어느 지역의 날씨를 확인할까요?"),
+    TaskType.WEATHER_LOOKUP: IntentDefinition(
+        TaskType.WEATHER_LOOKUP,
+        ("location",),
+        "어느 지역의 날씨를 확인할까요? 지역명을 입력해 주세요.",
+    ),
     TaskType.TEXT_SUMMARY: IntentDefinition(
         TaskType.TEXT_SUMMARY,
         ("text",),
@@ -31,12 +39,12 @@ INTENTS: Dict[TaskType, IntentDefinition] = {
     TaskType.CODE_ANALYSIS: IntentDefinition(
         TaskType.CODE_ANALYSIS,
         ("query",),
-        "코드에서 무엇을 분석할까요?",
+        "코드에서 무엇을 분석할까요? 분석할 내용을 입력해 주세요.",
     ),
     TaskType.AI_AGENT_USAGE: IntentDefinition(
         TaskType.AI_AGENT_USAGE,
         ("provider",),
-        "Claude Code와 Codex 중 어떤 사용량을 확인할까요?",
+        "Claude Code와 Codex 중 어떤 사용량을 확인할까요? 확인할 대상을 선택해 주세요.",
     ),
 }
 
