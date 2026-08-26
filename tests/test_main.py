@@ -72,6 +72,37 @@ def test_slash_missing_parameters_clarifies(client, path, missing):
     assert body["question"]
 
 
+@pytest.mark.parametrize(
+    ("path", "question"),
+    [
+        (["파일"], "어떤 파일을 찾을까요? 파일명이나 문서 종류를 입력해 주세요."),
+        (["열기"], "열 파일을 검색 결과에서 선택해 주세요."),
+        (["날씨"], "어느 지역의 날씨를 확인할까요? 지역명을 입력해 주세요."),
+        (["요약"], "요약할 내용을 공백 제외 150자 이상 입력해 주세요."),
+        (["코드"], "코드에서 무엇을 분석할까요? 분석할 내용을 입력해 주세요."),
+        (
+            ["사용량"],
+            "Claude Code와 Codex 중 어떤 사용량을 확인할까요? 확인할 대상을 선택해 주세요.",
+        ),
+    ],
+)
+def test_clarification_questions_tell_the_user_what_to_enter(client, path, question):
+    body = post(
+        client,
+        {"requestId": "req-question-copy", "command": {"path": path, "operands": []}},
+    ).json()
+
+    assert body["decision"] == "CLARIFY"
+    assert body["question"] == question
+
+
+def test_unsupported_input_does_not_invent_a_clarification_question(client):
+    body = post(client, {"requestId": "req-question-unsupported", "text": "메일 보내줘"}).json()
+
+    assert body["decision"] == "UNSUPPORTED"
+    assert body["question"] is None
+
+
 @pytest.mark.parametrize(("text", "task_type"), [("서울 날씨 알려줘", "WEATHER_LOOKUP"), ("회의록 파일 찾아줘", "FILE_SEARCH"), ("회의록 찾아줘", "FILE_SEARCH"), ("작년 견적서 찾아줘", "FILE_SEARCH"), ("컴퓨터 상태 알려줘", "SYSTEM_STATUS"), ("요약: " + ("가" * 150), "TEXT_SUMMARY")])
 def test_natural_language_tasks(client, text, task_type):
     body = post(client, {"requestId": "req-natural", "text": text}).json()
@@ -86,6 +117,12 @@ def test_natural_language_tasks(client, text, task_type):
         ("오늘 서울 날씨 어때?", "서울"),
         ("서울 기온 알려줘", "서울"),
         ("서울 기온이 궁금해", "서울"),
+        ("서울 온도 알려줘", "서울"),
+        ("서울 날씨 알려주세요", "서울"),
+        ("서울 날씨 어떤가요", "서울"),
+        ("서울 날씨 좀 알려줘", "서울"),
+        ("서울 날씨 말해 주세요", "서울"),
+        ("서울 날씨 알려줄래", "서울"),
         ("서울 weather", "서울"),
         ("weather 서울", "서울"),
         ("weather 서울 알려줘", "서울"),
@@ -97,6 +134,124 @@ def test_weather_expressions_extract_only_the_location(client, text, location):
     assert body["decision"] == "TASK"
     assert body["taskType"] == "WEATHER_LOOKUP"
     assert body["parameters"] == {"location": location}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "서울 부산 날씨 어때",
+        "서울이랑 부산 날씨 어때",
+        "서울과 부산 날씨 알려줘",
+        "서울, 부산 날씨 알려줘",
+        "서울·부산 날씨 알려줘",
+        "서울 & 부산 날씨 알려줘",
+        "서울 그리고 부산 날씨 알려줘",
+        "서울 또는 부산 날씨 알려줘",
+    ],
+)
+def test_weather_with_multiple_locations_clarifies(client, text):
+    body = post(client, {"requestId": "req-weather-multiple", "text": text}).json()
+
+    assert body["decision"] == "CLARIFY"
+    assert body["taskType"] == "WEATHER_LOOKUP"
+    assert body["parameters"] == {}
+    assert body["missingRequiredParameters"] == ["location"]
+    assert body["question"] == "어느 지역의 날씨를 확인할까요? 지역명을 입력해 주세요."
+
+
+@pytest.mark.parametrize(
+    ("text", "location"),
+    [
+        ("서울 강남구 날씨 어때", "서울 강남구"),
+        ("경기도 수원시 날씨 알려줘", "수원시"),
+    ],
+)
+def test_weather_with_multiword_single_location_remains_a_task(client, text, location):
+    body = post(client, {"requestId": "req-weather-multiword", "text": text}).json()
+
+    assert body["decision"] == "TASK"
+    assert body["taskType"] == "WEATHER_LOOKUP"
+    assert body["parameters"] == {"location": location}
+
+
+@pytest.mark.parametrize(
+    ("payload", "location"),
+    [
+        ({"text": "경기도 광주시 8/26날씨"}, "광주시"),
+        ({"text": "경기도 광주시 8월 26일 날씨"}, "광주시"),
+        ({"command": {"path": ["날씨"], "operands": ["경기도 광주시 8/26날씨"]}}, "광주시"),
+        ({"command": {"path": ["날씨"], "operands": ["경기도 광주시"]}}, "광주시"),
+    ],
+)
+def test_weather_current_date_and_province_city_are_normalized(client, payload, location):
+    body = post(
+        client,
+        {
+            "requestId": "req-weather-current-date",
+            "now": "2026-08-26T10:00:00+09:00",
+            **payload,
+        },
+    ).json()
+
+    assert body["decision"] == "TASK"
+    assert body["taskType"] == "WEATHER_LOOKUP"
+    assert body["parameters"] == {"location": location}
+
+
+@pytest.mark.parametrize(
+    "weather_text",
+    [
+        "경기도 광주시 8/27날씨",
+        "경기도 광주시 2025-08-26 날씨",
+        "경기도 광주시 13/40 날씨",
+    ],
+)
+def test_weather_non_current_or_invalid_date_is_unsupported(client, weather_text):
+    body = post(
+        client,
+        {
+            "requestId": "req-weather-unsupported-date",
+            "now": "2026-08-26T10:00:00+09:00",
+            "command": {"path": ["날씨"], "operands": [weather_text]},
+        },
+    ).json()
+
+    assert body["decision"] == "UNSUPPORTED"
+    assert body["taskType"] is None
+    assert body["parameters"] == {}
+
+
+@pytest.mark.parametrize(
+    "weather_text",
+    [
+        "내일 서울 날씨 알려줘",
+        "내일은 서울 날씨 알려줘",
+        "모레 부산 기온 알려줘",
+        "이번 주 서울 날씨 알려줘",
+        "다음주말 서울 날씨 알려줘",
+        "다음 월요일 대전 날씨 알려줘",
+        "서울 최고기온 알려줘",
+        "서울 최저 온도 알려줘",
+    ],
+)
+@pytest.mark.parametrize("input_kind", ["text", "command"])
+def test_weather_forecast_requests_are_unsupported(client, weather_text, input_kind):
+    payload = {"text": weather_text}
+    if input_kind == "command":
+        payload = {"command": {"path": ["날씨"], "operands": [weather_text]}}
+
+    body = post(
+        client,
+        {
+            "requestId": "req-weather-unsupported-forecast",
+            "now": "2026-08-26T10:00:00+09:00",
+            **payload,
+        },
+    ).json()
+
+    assert body["decision"] == "UNSUPPORTED"
+    assert body["taskType"] is None
+    assert body["parameters"] == {}
 
 
 @pytest.mark.parametrize(
@@ -120,6 +275,21 @@ def test_weather_slash_operands_use_the_same_location_cleanup_as_natural_languag
     assert body["decision"] == "TASK"
     assert body["taskType"] == "WEATHER_LOOKUP"
     assert body["parameters"] == {"location": location}
+
+
+def test_weather_slash_with_multiple_locations_clarifies(client):
+    body = post(
+        client,
+        {
+            "requestId": "req-weather-slash-multiple",
+            "command": {"path": ["날씨"], "operands": ["서울이랑 부산"]},
+        },
+    ).json()
+
+    assert body["decision"] == "CLARIFY"
+    assert body["taskType"] == "WEATHER_LOOKUP"
+    assert body["parameters"] == {}
+    assert body["missingRequiredParameters"] == ["location"]
 
 
 @pytest.mark.parametrize(
