@@ -43,7 +43,7 @@ def test_extractive_summary_returns_traceable_deterministic_result(client):
     assert body["taskId"] == "task-1"
     assert body["engine"] == "EXTRACTIVE"
     assert body["algorithm"] == "TFIDF_CENTROID"
-    assert body["algorithmVersion"] == "1"
+    assert body["algorithmVersion"] == "2"
     assert body["inputSentenceCount"] == 8
     assert 1 <= body["outputSentenceCount"] <= 3
     assert body["durationMs"] >= 0
@@ -67,6 +67,27 @@ def test_extractive_summary_falls_back_to_punctuation_for_english_sentences(clie
 
     assert response.status_code == 200
     assert response.json()["inputSentenceCount"] == 6
+
+
+def test_extractive_summary_keeps_explicit_decisions_owners_and_deadlines(client):
+    source = (
+        "오늘 회의에서는 신규 배포 일정과 담당 업무를 논의했습니다. "
+        "지난주 테스트에서는 로그인 오류가 두 건 발견되었습니다. "
+        "로그인 오류는 인증 토큰 갱신 순서가 잘못된 것이 원인이었습니다. "
+        "수정 코드는 수요일까지 반영하기로 결정했습니다. "
+        "배포는 금요일 오후 세 시에 진행하기로 확정했습니다. "
+        "민수는 배포 체크리스트를 작성하고 지수는 고객 공지를 준비합니다. "
+        "다음 회의는 다음 주 월요일 오전 열 시입니다. "
+        "배포 이후 한 시간 동안 오류율과 응답 시간을 집중 관찰합니다."
+    )
+
+    response = post_summary(client, source)
+
+    assert response.status_code == 200
+    summary = response.json()["summary"]
+    assert "수요일까지 반영하기로 결정" in summary
+    assert "금요일 오후 세 시에 진행하기로 확정" in summary
+    assert response.json()["outputSentenceCount"] == 3
 
 
 @pytest.mark.parametrize(

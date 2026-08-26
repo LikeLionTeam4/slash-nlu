@@ -18,6 +18,9 @@ _NON_SPACE = re.compile(r"\s+")
 _VISIBLE_CHARACTER = re.compile(r"[0-9A-Za-z가-힣]")
 _SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?。！？])\s+|\n+")
 _CONTENT_TAG_PREFIXES = ("N", "V", "M", "SL", "SN", "XR")
+_SALIENCE_CUE = re.compile(
+    r"(?:결정|확정|결론|담당|기한|예정|해야|하기로|까지)"
+)
 
 
 @dataclass(frozen=True)
@@ -44,7 +47,7 @@ class ExtractiveSummarizer:
         tokenized = [self._content_tokens(sentence) for sentence in sentences]
         self._validate_quality(normalized, sentences, tokenized)
 
-        selected_indexes = self._select_sentence_indexes(tokenized)
+        selected_indexes = self._select_sentence_indexes(sentences, tokenized)
         selected = [sentences[index] for index in selected_indexes]
         return ExtractiveSummaryResponse(
             requestId=request_id,
@@ -52,7 +55,7 @@ class ExtractiveSummarizer:
             summary=" ".join(selected),
             engine="EXTRACTIVE",
             algorithm="TFIDF_CENTROID",
-            algorithmVersion="1",
+            algorithmVersion="2",
             inputSentenceCount=len(sentences),
             outputSentenceCount=len(selected),
             durationMs=max(0, int((time.perf_counter() - started_at) * 1000)),
@@ -110,7 +113,7 @@ class ExtractiveSummarizer:
             )
 
     @staticmethod
-    def _select_sentence_indexes(tokenized: List[List[str]]) -> List[int]:
+    def _select_sentence_indexes(sentences: List[str], tokenized: List[List[str]]) -> List[int]:
         sentence_count = len(tokenized)
         document_frequency = Counter(
             token for sentence_tokens in tokenized for token in set(sentence_tokens)
@@ -123,6 +126,12 @@ class ExtractiveSummarizer:
                 frequency * (math.log((1 + sentence_count) / (1 + document_frequency[token])) + 1)
                 for token, frequency in term_frequency.items()
             ) / math.sqrt(max(1, len(sentence_tokens)))
+
+            # 회의록과 작업 문서의 명시적인 결정·담당·기한 문장을
+            # 일반 핵심어 점수에서 누락시키지 않도록 제한된 가중치만 추가한다.
+            # 점수를 대체하지 않아 일반 문서의 TF-IDF 순위는 계속 유지한다.
+            cue_count = len(_SALIENCE_CUE.findall(sentences[index]))
+            score *= 1 + min(0.45, cue_count * 0.18)
             scores.append((score, index))
 
         output_count = min(SUMMARY_MAX_SENTENCES, max(1, math.ceil(sentence_count * 0.3)))

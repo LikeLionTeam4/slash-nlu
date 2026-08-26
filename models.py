@@ -94,7 +94,7 @@ class ExtractiveSummaryResponse(BaseModel):
     summary: str
     engine: Literal["EXTRACTIVE"]
     algorithm: Literal["TFIDF_CENTROID"]
-    algorithmVersion: Literal["1"]
+    algorithmVersion: Literal["2"]
     inputSentenceCount: int = Field(ge=1)
     outputSentenceCount: int = Field(ge=1, le=3)
     durationMs: int = Field(ge=0)
