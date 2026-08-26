@@ -79,6 +79,7 @@ _WEATHER_PROVINCE_PREFIXES = {
     "충남",
     "충청남도",
     "전북",
+    "전라도",
     "전라북도",
     "전북특별자치도",
     "전남",
@@ -89,6 +90,22 @@ _WEATHER_PROVINCE_PREFIXES = {
     "경상남도",
     "제주",
     "제주특별자치도",
+}
+_WEATHER_GYEONGGI_PREFIXES = {"경기", "경기도"}
+_WEATHER_GWANGJU_METRO_PREFIXES = {
+    "전라도",
+    "전북",
+    "전라북도",
+    "전북특별자치도",
+    "전남",
+    "전라남도",
+}
+_WEATHER_COMPACT_LOCATION_ALIASES = {
+    "경기광주": "경기도 광주",
+    "경기도광주": "경기도 광주",
+    "경기광주시": "광주시",
+    "경기도광주시": "광주시",
+    "전라도광주": "전라도 광주",
 }
 _WEATHER_TOP_LEVEL_LOCATIONS = {
     "서울",
@@ -313,13 +330,19 @@ class NluAnalyzer:
                 break
             normalized = normalized[:tokens[-1].start].strip()
 
+        normalized = _WEATHER_COMPACT_LOCATION_ALIASES.get(normalized, normalized)
         words = normalized.split()
-        if (
-            len(words) == 2
-            and words[0] in _WEATHER_PROVINCE_PREFIXES
-            and words[1].endswith(("시", "군", "구"))
-        ):
-            return words[1]
+        if len(words) == 2 and words[0] in _WEATHER_PROVINCE_PREFIXES:
+            province, locality = words
+            if locality == "광주":
+                if province in _WEATHER_GYEONGGI_PREFIXES:
+                    return "경기도 광주"
+                if province in _WEATHER_GWANGJU_METRO_PREFIXES:
+                    return "광주"
+                return normalized
+            if locality not in _WEATHER_TOP_LEVEL_LOCATIONS:
+                # 시·군 접미사는 Backend PlaceName 이 지오코딩 제공자에 맞춰 붙인다.
+                return locality
         return normalized
 
     def _has_multiple_locations(self, location: str) -> bool:
@@ -335,6 +358,12 @@ class NluAnalyzer:
             return True
 
         words = location.split()
+        if (
+            len(words) == 2
+            and words[0] in _WEATHER_PROVINCE_PREFIXES
+            and words[1] == "광주"
+        ):
+            return False
         return (
             len(words) == 2
             and all(word in _WEATHER_TOP_LEVEL_LOCATIONS for word in words)

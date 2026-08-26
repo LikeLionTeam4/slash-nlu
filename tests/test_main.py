@@ -295,6 +295,14 @@ def test_weather_with_multiple_locations_clarifies(client, text):
     [
         ("서울 강남구 날씨 어때", "서울 강남구"),
         ("경기도 수원시 날씨 알려줘", "수원시"),
+        ("강원도 강릉 날씨 알려줘", "강릉"),
+        ("충청남도 천안 날씨 알려줘", "천안"),
+        ("경기도 광주 날씨 알려줘", "경기도 광주"),
+        ("경기 광주 날씨 알려줘", "경기도 광주"),
+        ("경기광주 날씨 알려줘", "경기도 광주"),
+        ("전라도 광주 날씨 알려줘", "광주"),
+        ("전라도광주 날씨 알려줘", "광주"),
+        ("충청남도 광주 날씨 알려줘", "충청남도 광주"),
     ],
 )
 def test_weather_with_multiword_single_location_remains_a_task(client, text, location):
