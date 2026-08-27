@@ -302,7 +302,7 @@ def test_weather_with_multiple_locations_clarifies(client, text):
         ("경기광주 날씨 알려줘", "경기도 광주"),
         ("전라도 광주 날씨 알려줘", "광주"),
         ("전라도광주 날씨 알려줘", "광주"),
-        ("충청남도 광주 날씨 알려줘", "충청남도 광주"),
+        ("경상도 안동 날씨 알려줘", "안동"),
     ],
 )
 def test_weather_with_multiword_single_location_remains_a_task(client, text, location):
@@ -311,6 +311,22 @@ def test_weather_with_multiword_single_location_remains_a_task(client, text, loc
     assert body["decision"] == "TASK"
     assert body["taskType"] == "WEATHER_LOOKUP"
     assert body["parameters"] == {"location": location}
+
+
+def test_nonexistent_province_qualified_gwangju_clarifies(client):
+    body = post(
+        client,
+        {
+            "requestId": "req-weather-ambiguous-province",
+            "text": "충청남도 광주 날씨 알려줘",
+            "now": "2026-08-26T15:00:00+09:00",
+        },
+    ).json()
+
+    assert body["decision"] == "CLARIFY"
+    assert body["taskType"] == "WEATHER_LOOKUP"
+    assert body["parameters"] == {}
+    assert body["missingRequiredParameters"] == ["location"]
 
 
 @pytest.mark.parametrize(

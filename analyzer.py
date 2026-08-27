@@ -84,6 +84,8 @@ _WEATHER_PROVINCE_PREFIXES = {
     "전북특별자치도",
     "전남",
     "전라남도",
+    "경상",
+    "경상도",
     "경북",
     "경상북도",
     "경남",
@@ -129,6 +131,8 @@ _WEATHER_TOP_LEVEL_LOCATIONS = {
     "전북특별자치도",
     "전남",
     "전라남도",
+    "경상",
+    "경상도",
     "경북",
     "경상북도",
     "경남",
@@ -360,7 +364,7 @@ class NluAnalyzer:
         words = location.split()
         if (
             len(words) == 2
-            and words[0] in _WEATHER_PROVINCE_PREFIXES
+            and words[0] in (_WEATHER_GYEONGGI_PREFIXES | _WEATHER_GWANGJU_METRO_PREFIXES)
             and words[1] == "광주"
         ):
             return False
