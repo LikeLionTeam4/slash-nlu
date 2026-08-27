@@ -33,6 +33,22 @@ _WEATHER_REQUEST_END = re.compile(
     r"[?!.\s]*$",
     flags=re.IGNORECASE,
 )
+_WEATHER_DETAIL_END = re.compile(
+    r"(?:의\s*)?(?:"
+    r"(?<![0-9A-Za-z가-힣])(?:비|눈)(?:이|가|은|는)?\s*(?:많이\s*)?(?:(?:안\s*)?"
+    r"(?:와(?:요)?|오나요|옵니까|내려(?:요)?|내리나요)|"
+    r"오고\s*있어(?:요)?|오는\s*중이야)|"
+    r"체감\s*온도(?:이|가|은|는|을|를|도)?\s*몇\s*도(?:야|예요|인가요|입니까)?|"
+    r"(?:강수량|습도|풍속|체감\s*온도)(?:이|가|은|는|을|를|도)?"
+    rf"(?:\s*좀)?(?:\s*{_WEATHER_REQUEST})?|"
+    r"바람(?:이|은|는|도)?\s*(?:많이\s*)?(?:불어(?:요)?|부나요|세(?:요)?|강해(?:요)?|"
+    rf"{_WEATHER_REQUEST})|"
+    r"몇\s*도(?:야|예요|인가요|입니까)?"
+    r")[?!.\s]*$"
+)
+_WEATHER_DETAIL_PREFIX = re.compile(
+    r"^(?:강수량|습도|풍속|체감\s*온도|바람)(?:이|가|은|는|을|를|도)?\s+"
+)
 _WEATHER_NUMERIC_DATE = re.compile(
     r"(?<!\d)(?:(?P<year>\d{4})[./-])?(?P<month>\d{1,2})[./-](?P<day>\d{1,2})(?!\d)"
 )
@@ -42,9 +58,14 @@ _WEATHER_KOREAN_DATE = re.compile(
 _WEATHER_UNSUPPORTED_TIME = re.compile(
     r"(?:^|\s)(?:어제|내일|모레|글피|지난\s*주|이번\s*주|다음\s*주말?|주말|"
     r"다음\s*(?:월|화|수|목|금|토|일)요일)(?:은|는|의|도)?"
-    r"(?=\s|날씨|기온|온도|$)"
+    r"(?=\s|날씨|기온|온도|강수량|습도|풍속|체감\s*온도|바람|비|눈|$)"
 )
 _WEATHER_UNSUPPORTED_METRIC = re.compile(r"(?:최고|최저)\s*(?:기온|온도)")
+_WEATHER_UNSUPPORTED_DETAIL = re.compile(
+    r"(?:미세먼지|초미세먼지|자외선)|"
+    r"(?<![0-9A-Za-z가-힣])(?:비|눈)(?:이|가|은|는)?\s*"
+    r"(?:올까(?:요)?|오겠(?:어|어요|습니까)?|내릴까(?:요)?)"
+)
 _TEMPORAL_LOCATION_WORDS = {"오늘", "금일", "현재", "지금"}
 _WEATHER_LOCATION_CONJUNCTIONS = {"와", "과", "랑", "이랑", "하고", "및"}
 _WEATHER_PROVINCE_PREFIXES = {
@@ -58,16 +79,35 @@ _WEATHER_PROVINCE_PREFIXES = {
     "충남",
     "충청남도",
     "전북",
+    "전라도",
     "전라북도",
     "전북특별자치도",
     "전남",
     "전라남도",
+    "경상",
+    "경상도",
     "경북",
     "경상북도",
     "경남",
     "경상남도",
     "제주",
     "제주특별자치도",
+}
+_WEATHER_GYEONGGI_PREFIXES = {"경기", "경기도"}
+_WEATHER_GWANGJU_METRO_PREFIXES = {
+    "전라도",
+    "전북",
+    "전라북도",
+    "전북특별자치도",
+    "전남",
+    "전라남도",
+}
+_WEATHER_COMPACT_LOCATION_ALIASES = {
+    "경기광주": "경기도 광주",
+    "경기도광주": "경기도 광주",
+    "경기광주시": "광주시",
+    "경기도광주시": "광주시",
+    "전라도광주": "전라도 광주",
 }
 _WEATHER_TOP_LEVEL_LOCATIONS = {
     "서울",
@@ -91,6 +131,8 @@ _WEATHER_TOP_LEVEL_LOCATIONS = {
     "전북특별자치도",
     "전남",
     "전라남도",
+    "경상",
+    "경상도",
     "경북",
     "경상북도",
     "경남",
@@ -158,7 +200,7 @@ class NluAnalyzer:
         if self._has_any(lowered, surfaces, ("요약", "summary")):
             summary_text = self._extract_summary_text(text.strip())
             return self._task_or_clarify(request_id, TaskType.TEXT_SUMMARY, {"text": summary_text} if summary_text else {}, AnalyzerType.RULE_KIWI, 0.92)
-        if self._has_any(lowered, surfaces, ("날씨", "기온", "온도", "weather")):
+        if self._is_weather_request(lowered, surfaces):
             weather_text, unsupported_date = self._strip_current_weather_date(normalized, now)
             if unsupported_date:
                 return self._unsupported(request_id, AnalyzerType.RULE_KIWI, 0.0)
@@ -225,23 +267,37 @@ class NluAnalyzer:
 
     @staticmethod
     def _extract_location(text: str) -> str:
-        cleaned = _WEATHER_END.sub("", text).strip()
+        cleaned = _WEATHER_DETAIL_END.sub("", text).strip()
+        cleaned = _WEATHER_END.sub("", cleaned).strip()
         cleaned = re.sub(
             r"^(?:날씨|기온|온도|weather)(?:이|가|은|는|를|도)?\s*",
             "",
             cleaned,
             flags=re.IGNORECASE,
         ).strip()
+        cleaned = _WEATHER_DETAIL_PREFIX.sub("", cleaned).strip()
         # 키워드가 문장 앞에 오면 위의 _WEATHER_END가 요청 표현까지 제거하지 못한다.
         # 예: "weather 서울 알려줘"에서 "알려줘"가 지역명에 섞이지 않게 정리한다.
         cleaned = _WEATHER_REQUEST_END.sub("", cleaned).strip()
         return " ".join(word for word in cleaned.split() if word not in _TEMPORAL_LOCATION_WORDS).strip(" ,")
 
     @staticmethod
+    def _is_weather_request(text: str, surfaces: set[str]) -> bool:
+        return (
+            any(word in surfaces for word in ("날씨", "기온", "온도", "weather"))
+            or _WEATHER_DETAIL_END.search(text) is not None
+            or (
+                _WEATHER_DETAIL_PREFIX.search(text) is not None
+                and _WEATHER_REQUEST_END.search(text) is not None
+            )
+        )
+
+    @staticmethod
     def _strip_current_weather_date(text: str, now: datetime) -> tuple[str, bool]:
         unsupported_date = bool(
             _WEATHER_UNSUPPORTED_TIME.search(text)
             or _WEATHER_UNSUPPORTED_METRIC.search(text)
+            or _WEATHER_UNSUPPORTED_DETAIL.search(text)
         )
 
         def strip_if_current(match: re.Match[str]) -> str:
@@ -270,16 +326,28 @@ class NluAnalyzer:
         cleaned = _WEATHER_NUMERIC_DATE.sub(strip_if_current, cleaned)
         return _SPACE.sub(" ", cleaned).strip(), unsupported_date
 
-    @staticmethod
-    def _normalize_weather_location(location: str) -> str:
-        words = location.split()
-        if (
-            len(words) == 2
-            and words[0] in _WEATHER_PROVINCE_PREFIXES
-            and words[1].endswith(("시", "군", "구"))
-        ):
-            return words[1]
-        return location
+    def _normalize_weather_location(self, location: str) -> str:
+        normalized = location.strip()
+        while normalized:
+            tokens = self.kiwi.tokenize(normalized)
+            if not tokens or not tokens[-1].tag.startswith("J"):
+                break
+            normalized = normalized[:tokens[-1].start].strip()
+
+        normalized = _WEATHER_COMPACT_LOCATION_ALIASES.get(normalized, normalized)
+        words = normalized.split()
+        if len(words) == 2 and words[0] in _WEATHER_PROVINCE_PREFIXES:
+            province, locality = words
+            if locality == "광주":
+                if province in _WEATHER_GYEONGGI_PREFIXES:
+                    return "경기도 광주"
+                if province in _WEATHER_GWANGJU_METRO_PREFIXES:
+                    return "광주"
+                return normalized
+            if locality not in _WEATHER_TOP_LEVEL_LOCATIONS:
+                # 시·군 접미사는 Backend PlaceName 이 지오코딩 제공자에 맞춰 붙인다.
+                return locality
+        return normalized
 
     def _has_multiple_locations(self, location: str) -> bool:
         tokens = self.kiwi.tokenize(location)
@@ -294,6 +362,12 @@ class NluAnalyzer:
             return True
 
         words = location.split()
+        if (
+            len(words) == 2
+            and words[0] in (_WEATHER_GYEONGGI_PREFIXES | _WEATHER_GWANGJU_METRO_PREFIXES)
+            and words[1] == "광주"
+        ):
+            return False
         return (
             len(words) == 2
             and all(word in _WEATHER_TOP_LEVEL_LOCATIONS for word in words)
