@@ -19,7 +19,7 @@ _VISIBLE_CHARACTER = re.compile(r"[0-9A-Za-z가-힣]")
 _SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?。！？])\s+|\n+")
 _CONTENT_TAG_PREFIXES = ("N", "V", "M", "SL", "SN", "XR")
 _SALIENCE_CUE = re.compile(
-    r"(?:결정|확정|결론|담당|기한|예정|해야|하기로|까지)"
+    r"(?:결정|확정|결론|담당|기한|예정|해야|하기로)"
 )
 
 

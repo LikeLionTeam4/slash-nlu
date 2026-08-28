@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from main import app
+from summary import _SALIENCE_CUE
 
 
 SUMMARY_PATH = "/internal/v1/nlu/summaries/extractive"
@@ -69,7 +70,7 @@ def test_extractive_summary_falls_back_to_punctuation_for_english_sentences(clie
     assert response.json()["inputSentenceCount"] == 6
 
 
-def test_extractive_summary_keeps_explicit_decisions_owners_and_deadlines(client):
+def test_extractive_summary_keeps_explicit_decisions_and_deadlines(client):
     source = (
         "오늘 회의에서는 신규 배포 일정과 담당 업무를 논의했습니다. "
         "지난주 테스트에서는 로그인 오류가 두 건 발견되었습니다. "
@@ -88,6 +89,18 @@ def test_extractive_summary_keeps_explicit_decisions_owners_and_deadlines(client
     assert "수요일까지 반영하기로 결정" in summary
     assert "금요일 오후 세 시에 진행하기로 확정" in summary
     assert response.json()["outputSentenceCount"] == 3
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "회사까지 30분 걸립니다.",
+        "예산 중 절반까지 사용했습니다.",
+        "입구에서 건물 끝까지 걸었습니다.",
+    ],
+)
+def test_salience_cue_does_not_treat_plain_range_as_deadline(text):
+    assert _SALIENCE_CUE.search(text) is None
 
 
 @pytest.mark.parametrize(
