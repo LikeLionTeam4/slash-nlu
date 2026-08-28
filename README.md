@@ -1,13 +1,38 @@
 # Slash | 자연어 분석
 
-Slash(/)는 자연어 질문과 `/` 슬래시 명령어를 한 입력창에서 처리하는 AI 에이전트 서비스입니다.
-이 저장소는 그중 **자연어 분석(NLU)** 파트를 담당합니다.
+Slash(/)는 자연어 질문과 `/` 슬래시 명령어를 한 입력창에서 처리하는 AI 비서 서비스입니다.
+이 저장소는 그중 **자연어 분석(NLU)과 CPU 추출 요약** 파트를 담당합니다.
 
 ## 역할
 
-- slash 명령 파싱
-- 규칙 기반 + [Kiwi](https://github.com/bab2min/Kiwi) 형태소 분석 기반 의도(intent) 분류
-- 인자(argument) 추출
+`slash-api`만 호출하는 내부 서비스입니다. 사용자에게 직접 열리지 않으며 클러스터
+안에서만 접근합니다(경로가 `/internal/`로 시작하는 이유).
+
+**1. 입력을 작업 유형과 인자로 분석**
+
+- slash 명령 파싱 — `/파일 견적서` → `FILE_SEARCH` + `query=견적서`
+- 규칙 기반 + [Kiwi](https://github.com/bab2min/Kiwi) 형태소 분석 기반 의도 분류
+- 인자 추출과 누락 판정 — 빠진 값이 있으면 되묻기 문구와 함께 `CLARIFY`
+
+**2. CPU 추출 요약**
+
+- TF-IDF 중심도로 원문에서 **중요한 문장을 고른다.** 문장을 새로 만들지 않는다
+- GPU 없이 동작하며, 클라우드 LLM 제거(`slash-docs#3`) 이후 `/summary`의 **서버 실행
+  경로가 이쪽으로 바뀌었다**
+- 실측 최악 97ms
+
+**하지 않는 것** — 처리 경로·실행 위치를 결정하지 않습니다. 그것은 `slash-api`가
+정합니다. 인증·권한도 다루지 않습니다.
+
+### 소스 구조
+
+| 파일 | 역할 |
+|---|---|
+| `main.py` | HTTP 진입점. 기동 시 분석기·요약기를 한 번 생성 |
+| `analyzer.py` | 슬래시·자연어 분석 본체. 명시 규칙 → Kiwi/키워드 → fallback 순 |
+| `summary.py` | TF-IDF 중심도 기반 추출 요약 |
+| `models.py` | **`slash-api`와의 요청·응답 계약 원본** |
+| `intents.py` | 작업 유형별 필수 인자·되묻기 문구·슬래시 별칭 |
 
 ## 시작하기
 
@@ -50,7 +75,10 @@ namespace의 Backend에는 `NLU_BASE_URL=http://slash-nlu`를 주입합니다.
 - `decision`, `taskType`, `analyzer`는 JSON에서 문자열로 직렬화되는 **string enum**입니다.
 - DB 저장 방식은 Backend 소유입니다. 현재 연동 기준은 `varchar + CHECK`이며 값 추가 시 Flyway migration으로 제약조건을 갱신합니다.
 - 사용자/IP별 요청 횟수 제한과 `429 RATE_LIMITED` 응답은 인증 정보를 가진 Backend가 담당합니다.
-- NLU는 실행 위치(`processingRoute`)를 결정하거나 반환하지 않습니다.
+- NLU는 처리 경로(`processingRoute`)와 실행 위치(`executionTarget`)를 결정하거나
+  반환하지 않습니다. 둘 다 Backend가 정합니다 — 처리 경로는 작업 유형이 상수로 갖고,
+  실행 위치는 같은 유형이라도 상황에 따라 달라집니다(`TEXT_SUMMARY`가 브라우저·PC·
+  서버 셋 중 하나로 갈립니다).
 - `FILE_SEARCH.searchFolderId`는 Backend가 보완하며 NLU의 누락 판정 대상이 아닙니다.
 - `FILE_OPEN.fileRef`는 검색 결과에서 받은 불투명한 한 토큰을 변형 없이 전달합니다.
 - `TEXT_SUMMARY.text`는 LLM 입력 정책과 동일하게 공백 제거 후 150자 이상이어야 합니다.
