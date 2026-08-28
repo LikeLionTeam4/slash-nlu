@@ -27,7 +27,7 @@ GPU 모델 없이 중요한 원문 문장을 선택하는 Backend용 내부 API�
   "summary": "원문에서 선택한 최대 3문장",
   "engine": "EXTRACTIVE",
   "algorithm": "TFIDF_CENTROID",
-  "algorithmVersion": "1",
+  "algorithmVersion": "2",
   "inputSentenceCount": 8,
   "outputSentenceCount": 3,
   "durationMs": 18
